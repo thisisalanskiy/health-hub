@@ -44,7 +44,7 @@ fun SettingsScreen(appPreferences: AppPreferences) {
         OutlinedTextField(
             value = baseUrl,
             onValueChange = { baseUrl = it },
-            label = { Text("Server base URL (e.g. https://your-tailscale-host:8000)") },
+            label = { Text("Server base URL (e.g. http://your-tailscale-host:8000)") },
             modifier = Modifier.padding(top = 8.dp),
         )
         OutlinedTextField(
