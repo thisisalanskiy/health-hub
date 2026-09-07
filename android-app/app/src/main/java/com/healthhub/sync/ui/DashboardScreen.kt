@@ -154,13 +154,18 @@ fun DashboardScreen(
     // selected date range and the configured server URL — not on permissions.
     LaunchedEffect(selectedDays) {
         tdeeError = null
-        val baseUrl = appPreferences.getBaseUrl()
-        if (baseUrl.isNullOrBlank()) {
-            tdeeData = null
-            return@LaunchedEffect
-        }
         tdeeData = try {
-            HealthApiClient(baseUrl).getTdee(selectedDays)
+            // getBaseUrl() reads Preferences DataStore and can throw IOException
+            // on a real read failure, so it must be inside this try along with
+            // the network call below - otherwise a DataStore failure would
+            // propagate uncaught out of this LaunchedEffect and crash the screen.
+            val baseUrl = appPreferences.getBaseUrl()
+            if (baseUrl.isNullOrBlank()) {
+                // No server configured yet: a quiet fallback state, not an error.
+                null
+            } else {
+                HealthApiClient(baseUrl).getTdee(selectedDays)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
