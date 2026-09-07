@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.healthhub.sync.dashboard.DashboardAggregator
 import com.healthhub.sync.dashboard.DashboardRawData
+import com.healthhub.sync.dashboard.trendDelta
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.data.SyncLogEntry
@@ -93,24 +94,33 @@ fun DashboardScreen(
             return@Column
         }
 
-        // Same four charts (weight/steps/heart-rate/sleep-stages) either way; only the
-        // container arranging them changes based on available width.
         val charts: List<@Composable () -> Unit> = listOf(
             {
-                Text("Weight", style = MaterialTheme.typography.titleMedium)
-                LineChart(series = DashboardAggregator.dailyWeightTrend(data, zone))
+                val series = DashboardAggregator.dailyWeightTrend(data, zone)
+                val current = series.values.lastOrNull()?.let { "%.1f kg".format(it) } ?: "no data"
+                ChartHeader("Weight", "kg", current, trendDelta(series), "kg")
+                LineChart(series = series)
             },
             {
-                Text("Steps", style = MaterialTheme.typography.titleMedium)
-                BarChart(series = DashboardAggregator.dailySteps(data, zone))
+                val series = DashboardAggregator.dailySteps(data, zone)
+                val current = series.values.lastOrNull()?.let { "${it.toInt()}" } ?: "no data"
+                ChartHeader("Steps", "count", current, trendDelta(series), "steps/day")
+                BarChart(series = series)
             },
             {
-                Text("Heart rate (avg)", style = MaterialTheme.typography.titleMedium)
                 val (_, avg, _) = DashboardAggregator.dailyHeartRate(data, zone)
+                val current = avg.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
+                ChartHeader("Heart rate (avg)", "bpm", current, trendDelta(avg), "bpm")
                 LineChart(series = avg)
             },
             {
-                Text("Sleep stages", style = MaterialTheme.typography.titleMedium)
+                val series = DashboardAggregator.dailyRestingHeartRate(data, zone)
+                val current = series.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
+                ChartHeader("Resting heart rate", "bpm", current, trendDelta(series), "bpm")
+                LineChart(series = series)
+            },
+            {
+                Text("Sleep stages (min/night)", style = MaterialTheme.typography.titleMedium)
                 StackedBarChart(
                     seriesByStack = DashboardAggregator.nightlySleepStages(data, zone),
                     colors = mapOf(
@@ -119,6 +129,25 @@ fun DashboardScreen(
                         "core" to Color(0xFF1565C0),
                         "awake" to Color(0xFFB71C1C),
                         "other" to Color(0xFF888888),
+                    ),
+                )
+            },
+            {
+                val series = DashboardAggregator.weeklyWorkoutMinutes(data, zone)
+                val current = series.values.lastOrNull()?.let { "${it.toInt()} min this week" } ?: "no data"
+                Text("Workouts (min/week)", style = MaterialTheme.typography.titleMedium)
+                Text(current, style = MaterialTheme.typography.bodyMedium)
+                BarChart(series = series)
+            },
+            {
+                val (protein, fat, carbs) = DashboardAggregator.dailyNutritionMacros(data, zone)
+                Text("Nutrition macros (g/day)", style = MaterialTheme.typography.titleMedium)
+                StackedBarChart(
+                    seriesByStack = mapOf("protein" to protein, "fat" to fat, "carbs" to carbs),
+                    colors = mapOf(
+                        "protein" to Color(0xFF1565C0),
+                        "fat" to Color(0xFFE65100),
+                        "carbs" to Color(0xFF2E7D32),
                     ),
                 )
             },
@@ -141,6 +170,25 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(charts.size) { index -> charts[index]() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChartHeader(title: String, unit: String, currentValue: String, trend: Float?, trendUnit: String) {
+    Column {
+        Text("$title ($unit)", style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(currentValue, style = MaterialTheme.typography.bodyMedium)
+            if (trend != null && kotlin.math.abs(trend) > 0.01f) {
+                val arrow = if (trend > 0) "▲" else "▼"
+                Box(modifier = Modifier.width(6.dp))
+                Text(
+                    "$arrow ${"%+.1f".format(trend)} $trendUnit",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
