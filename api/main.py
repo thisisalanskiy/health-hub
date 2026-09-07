@@ -980,6 +980,38 @@ def api_tdee(days: int = 30):
     })
 
 
+@app.get("/api/body-trends")
+def api_body_trends(days: int = 30):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT date_trunc('day', start_time)::date AS day, type, AVG(value)::float
+        FROM biometric_timeseries
+        WHERE type IN (
+            'HKQuantityTypeIdentifierVO2Max',
+            'HKQuantityTypeIdentifierBodyFatPercentage',
+            'HKQuantityTypeIdentifierBasalMetabolicRate'
+        )
+        AND start_time >= NOW() - INTERVAL '1 day' * %s
+        GROUP BY 1, 2
+    """, (days,))
+
+    by_day: dict = {}
+    for day, typ, val in cur.fetchall():
+        by_day.setdefault(jsonable(day), {})[typ] = val
+    cur.close()
+    conn.close()
+
+    target_dates = [jsonable(date.today() - timedelta(days=i)) for i in range(days)][::-1]
+    return JSONResponse({
+        "dates": target_dates,
+        "vo2_max": [by_day.get(d, {}).get("HKQuantityTypeIdentifierVO2Max") for d in target_dates],
+        "body_fat_percent": [by_day.get(d, {}).get("HKQuantityTypeIdentifierBodyFatPercentage") for d in target_dates],
+        "bmr_kcal": [by_day.get(d, {}).get("HKQuantityTypeIdentifierBasalMetabolicRate") for d in target_dates],
+    })
+
+
 # ─────────────────────────────────────────────────────────────────
 # User-facing dashboard
 # ─────────────────────────────────────────────────────────────────
