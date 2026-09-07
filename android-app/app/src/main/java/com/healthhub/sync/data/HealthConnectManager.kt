@@ -12,6 +12,10 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
+import com.healthhub.sync.dashboard.DashboardRawData
+import java.time.Instant
 import kotlin.reflect.KClass
 
 private val RECORD_TYPES: List<KClass<out androidx.health.connect.client.records.Record>> = listOf(
@@ -85,6 +89,19 @@ class HealthConnectManager(private val context: Context) {
 
         val payload = buildIngestPayload(weights, nutrition, exercises, heartRates, restingHeartRates, steps, sleeps)
         return payload to newTokens
+    }
+
+    suspend fun readForDashboard(start: Instant, end: Instant): DashboardRawData {
+        val range = TimeRangeFilter.between(start, end)
+        return DashboardRawData(
+            weights = client.readRecords(ReadRecordsRequest(WeightRecord::class, range)).records,
+            nutrition = client.readRecords(ReadRecordsRequest(NutritionRecord::class, range)).records,
+            exercises = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records,
+            heartRates = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records,
+            restingHeartRates = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range)).records,
+            steps = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records,
+            sleeps = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records,
+        )
     }
 
 }
