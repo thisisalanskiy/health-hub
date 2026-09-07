@@ -1,15 +1,18 @@
 package com.healthhub.sync
 
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -34,11 +37,12 @@ import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.ui.DashboardScreen
 import com.healthhub.sync.ui.HomeScreen
 import com.healthhub.sync.ui.SettingsScreen
+import com.healthhub.sync.ui.theme.HealthHubSyncTheme
 
-private enum class Destination(val route: String, val label: String) {
-    HOME("home", "Home"),
-    DASHBOARD("dashboard", "Dashboard"),
-    SETTINGS("settings", "Settings"),
+private enum class Destination(val route: String, val label: String, val icon: String) {
+    HOME("home", "Home", "🏠"),
+    DASHBOARD("dashboard", "Dashboard", "📊"),
+    SETTINGS("settings", "Settings", "⚙️"),
 }
 
 /** Material's standard compact/expanded width breakpoint. */
@@ -51,11 +55,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Dark-only app: force light (white) status/nav bar icons regardless of the
+        // system's own light/dark setting, so they stay legible against our always-dark
+        // background rather than merging into it.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+        )
+
         val healthConnectManager = HealthConnectManager(applicationContext)
         val appPreferences = AppPreferences(applicationContext)
 
         setContent {
-            MaterialTheme {
+            HealthHubSyncTheme {
                 Surface {
                     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                         val isWideScreen = maxWidth >= WIDE_SCREEN_BREAKPOINT
@@ -77,13 +89,13 @@ class MainActivity : ComponentActivity() {
                         }
 
                         if (isWideScreen) {
-                            Row(modifier = Modifier.fillMaxSize()) {
+                            Row(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                                 NavigationRail {
                                     Destination.values().forEach { destination ->
                                         NavigationRailItem(
                                             selected = isSelected(destination),
                                             onClick = { navigateTo(destination) },
-                                            icon = {},
+                                            icon = { Text(destination.icon) },
                                             label = { Text(destination.label) },
                                         )
                                     }
@@ -104,7 +116,7 @@ class MainActivity : ComponentActivity() {
                                             NavigationBarItem(
                                                 selected = isSelected(destination),
                                                 onClick = { navigateTo(destination) },
-                                                icon = {},
+                                                icon = { Text(destination.icon) },
                                                 label = { Text(destination.label) },
                                             )
                                         }

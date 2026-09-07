@@ -2,6 +2,7 @@ package com.healthhub.sync.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -93,11 +94,18 @@ fun DashboardScreen(healthConnectManager: HealthConnectManager, isWideScreen: Bo
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.padding(top = 16.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(charts.size) { index -> charts[index]() }
             }
         } else {
-            LazyColumn(modifier = Modifier.padding(top = 16.dp)) {
+            LazyColumn(
+                modifier = Modifier.padding(top = 16.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 items(charts.size) { index -> charts[index]() }
             }
         }
