@@ -552,6 +552,27 @@ def api_snapshot():
     })
 
 
+@app.get("/api/last-sync")
+def api_last_sync():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT GREATEST(
+            (SELECT MAX(recorded_at) FROM weight_logs),
+            (SELECT MAX(logged_at) FROM meal_logs),
+            (SELECT MAX(start_time) FROM workouts),
+            (SELECT MAX(start_time) FROM sleep_records),
+            (SELECT MAX(start_time) FROM biometric_timeseries)
+        )
+    """)
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    latest = row[0] if row else None
+    return JSONResponse({"latest": jsonable(latest) if latest is not None else None})
+
+
 @app.get("/api/weight")
 def api_weight(days: int = 30):
     conn = get_conn()
