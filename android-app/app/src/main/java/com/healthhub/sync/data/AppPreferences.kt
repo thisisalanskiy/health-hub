@@ -37,6 +37,7 @@ class AppPreferences(private val context: Context) {
     suspend fun getChangesToken(recordTypeKey: String): String? =
         context.dataStore.data.first()[changesTokenKey(recordTypeKey)]
 
+    // Known gap: does not check ChangesResponse.changesTokenExpired (see spec's Known Gaps).
     suspend fun setChangesToken(recordTypeKey: String, token: String) {
         context.dataStore.edit { it[changesTokenKey(recordTypeKey)] = token }
     }
