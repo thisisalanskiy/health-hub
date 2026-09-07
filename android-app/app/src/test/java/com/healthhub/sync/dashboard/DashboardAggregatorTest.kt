@@ -1,5 +1,8 @@
 package com.healthhub.sync.dashboard
 
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
@@ -80,5 +83,65 @@ class DashboardAggregatorTest {
 
         assertEquals(listOf("2026-09-01"), series.labels)
         assertEquals(1500f, series.values[0], 0.01f)
+    }
+
+    @Test
+    fun `weekly workout minutes sums session durations within the same ISO week`() {
+        val mondayStart = Instant.parse("2026-09-07T08:00:00Z") // a Monday
+        val mondayEnd = Instant.parse("2026-09-07T08:30:00Z")   // 30 min session
+        val wednesdayStart = Instant.parse("2026-09-09T08:00:00Z")
+        val wednesdayEnd = Instant.parse("2026-09-09T09:00:00Z") // 60 min session
+        val data = DashboardRawData(
+            exercises = listOf(
+                ExerciseSessionRecord(mondayStart, null, mondayEnd, null, meta("w1"), 56),
+                ExerciseSessionRecord(wednesdayStart, null, wednesdayEnd, null, meta("w2"), 56),
+            ),
+        )
+
+        val series = DashboardAggregator.weeklyWorkoutMinutes(data, zone)
+
+        assertEquals(1, series.labels.size)
+        assertEquals(90f, series.values[0], 0.1f)
+    }
+
+    @Test
+    fun `daily nutrition macros sum grams per day`() {
+        val day1 = Instant.parse("2026-09-01T08:00:00Z")
+        val day1End = Instant.parse("2026-09-01T08:30:00Z")
+        val data = DashboardRawData(
+            nutrition = listOf(
+                NutritionRecord(
+                    startTime = day1, startZoneOffset = null, endTime = day1End, endZoneOffset = null,
+                    protein = androidx.health.connect.client.units.Mass.grams(30.0),
+                    totalFat = androidx.health.connect.client.units.Mass.grams(10.0),
+                    totalCarbohydrate = androidx.health.connect.client.units.Mass.grams(50.0),
+                    metadata = meta("n1"),
+                ),
+            ),
+        )
+
+        val (protein, fat, carbs) = DashboardAggregator.dailyNutritionMacros(data, zone)
+
+        assertEquals(listOf("2026-09-01"), protein.labels)
+        assertEquals(30f, protein.values[0], 0.1f)
+        assertEquals(10f, fat.values[0], 0.1f)
+        assertEquals(50f, carbs.values[0], 0.1f)
+    }
+
+    @Test
+    fun `daily resting heart rate averages same-day readings`() {
+        val day1a = Instant.parse("2026-09-01T06:00:00Z")
+        val day1b = Instant.parse("2026-09-01T18:00:00Z")
+        val data = DashboardRawData(
+            restingHeartRates = listOf(
+                RestingHeartRateRecord(day1a, null, 58, meta("r1")),
+                RestingHeartRateRecord(day1b, null, 62, meta("r2")),
+            ),
+        )
+
+        val series = DashboardAggregator.dailyRestingHeartRate(data, zone)
+
+        assertEquals(listOf("2026-09-01"), series.labels)
+        assertEquals(60f, series.values[0], 0.1f)
     }
 }

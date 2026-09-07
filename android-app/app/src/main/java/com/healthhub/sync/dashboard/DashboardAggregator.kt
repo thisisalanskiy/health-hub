@@ -3,6 +3,7 @@ package com.healthhub.sync.dashboard
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
 
 private val DAY_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -67,5 +68,43 @@ object DashboardAggregator {
         4 -> "core"
         1, 3 -> "awake"
         else -> "other"
+    }
+
+    fun weeklyWorkoutMinutes(data: DashboardRawData, zone: ZoneId): ChartSeries {
+        val byWeek = data.exercises
+            .groupBy { weekLabel(it.startTime, zone) }
+            .toSortedMap()
+            .mapValues { (_, sessions) ->
+                sessions.sumOf { (it.endTime.toEpochMilli() - it.startTime.toEpochMilli()) / 60_000.0 }.toFloat()
+            }
+        return ChartSeries(byWeek.keys.toList(), byWeek.values.toList())
+    }
+
+    fun dailyNutritionMacros(data: DashboardRawData, zone: ZoneId): Triple<ChartSeries, ChartSeries, ChartSeries> {
+        val byDay = data.nutrition.groupBy { it.startTime.toDayString(zone) }.toSortedMap()
+        val labels = byDay.keys.toList()
+        fun sumGrams(selector: (androidx.health.connect.client.records.NutritionRecord) -> Double?): List<Float> =
+            labels.map { day -> byDay.getValue(day).sumOf { selector(it) ?: 0.0 }.toFloat() }
+
+        val protein = ChartSeries(labels, sumGrams { it.protein?.inGrams })
+        val fat = ChartSeries(labels, sumGrams { it.totalFat?.inGrams })
+        val carbs = ChartSeries(labels, sumGrams { it.totalCarbohydrate?.inGrams })
+        return Triple(protein, fat, carbs)
+    }
+
+    fun dailyRestingHeartRate(data: DashboardRawData, zone: ZoneId): ChartSeries {
+        val byDay = data.restingHeartRates
+            .groupBy { it.time.toDayString(zone) }
+            .toSortedMap()
+            .mapValues { (_, records) -> records.map { it.beatsPerMinute }.average().toFloat() }
+        return ChartSeries(byDay.keys.toList(), byDay.values.toList())
+    }
+
+    /** ISO-8601 week label (e.g. "2026-W37") so sessions in the same week group together. */
+    private fun weekLabel(instant: Instant, zone: ZoneId): String {
+        val date = instant.atZone(zone).toLocalDate()
+        val week = date.get(WeekFields.ISO.weekOfWeekBasedYear())
+        val year = date.get(WeekFields.ISO.weekBasedYear())
+        return "%04d-W%02d".format(year, week)
     }
 }
