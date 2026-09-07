@@ -50,7 +50,13 @@ class HealthConnectManager(private val context: Context) {
         for (type in RECORD_TYPES) {
             val key = type.simpleName!!
             val existing = prefs.getChangesToken(key)
-            result[key] = existing ?: client.getChangesToken(ChangesTokenRequest(setOf(type)))
+            val token = existing ?: client.getChangesToken(ChangesTokenRequest(setOf(type))).also { newToken ->
+                // Persist immediately: otherwise every failed sync attempt before
+                // the first successful one mints and discards a fresh baseline
+                // token, silently skipping everything recorded since install.
+                prefs.setChangesToken(key, newToken)
+            }
+            result[key] = token
         }
         return result
     }
