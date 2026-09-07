@@ -32,7 +32,7 @@ class HealthConnectManager(private val context: Context) {
 
     val requiredPermissions: Set<String> = RECORD_TYPES
         .map { HealthPermission.getReadPermission(it) }
-        .toSet()
+        .toSet() + HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
 
     private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
 
