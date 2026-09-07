@@ -3,16 +3,28 @@ package com.healthhub.sync
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,6 +41,12 @@ private enum class Destination(val route: String, val label: String) {
     SETTINGS("settings", "Settings"),
 }
 
+/** Material's standard compact/expanded width breakpoint. */
+private val WIDE_SCREEN_BREAKPOINT = 600.dp
+
+/** Caps content width so text/lists don't stretch edge-to-edge on a large unfolded screen. */
+private val CONTENT_MAX_WIDTH = 640.dp
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,48 +57,98 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface {
-                    val navController = rememberNavController()
-                    Scaffold(
-                        bottomBar = {
-                            NavigationBar {
-                                val backStackEntry by navController.currentBackStackEntryAsState()
-                                val currentRoute = backStackEntry?.destination
-                                Destination.values().forEach { destination ->
-                                    NavigationBarItem(
-                                        selected = currentRoute?.hierarchy?.any { it.route == destination.route } == true,
-                                        onClick = {
-                                            navController.navigate(destination.route) {
-                                                popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
-                                                }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        },
-                                        icon = {},
-                                        label = { Text(destination.label) },
-                                    )
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                        val isWideScreen = maxWidth >= WIDE_SCREEN_BREAKPOINT
+                        val navController = rememberNavController()
+                        val backStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = backStackEntry?.destination
+
+                        fun isSelected(destination: Destination) =
+                            currentRoute?.hierarchy?.any { it.route == destination.route } == true
+
+                        fun navigateTo(destination: Destination) {
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                        },
-                    ) { padding ->
-                        NavHost(
-                            navController = navController,
-                            startDestination = Destination.HOME.route,
-                            modifier = androidx.compose.ui.Modifier.padding(padding),
-                        ) {
-                            composable(Destination.HOME.route) {
-                                HomeScreen(healthConnectManager, appPreferences)
+                        }
+
+                        if (isWideScreen) {
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                NavigationRail {
+                                    Destination.values().forEach { destination ->
+                                        NavigationRailItem(
+                                            selected = isSelected(destination),
+                                            onClick = { navigateTo(destination) },
+                                            icon = {},
+                                            label = { Text(destination.label) },
+                                        )
+                                    }
+                                }
+                                NavHostContent(
+                                    navController = navController,
+                                    healthConnectManager = healthConnectManager,
+                                    appPreferences = appPreferences,
+                                    isWideScreen = isWideScreen,
+                                    modifier = Modifier.weight(1f).fillMaxSize(),
+                                )
                             }
-                            composable(Destination.DASHBOARD.route) {
-                                DashboardScreen(healthConnectManager)
-                            }
-                            composable(Destination.SETTINGS.route) {
-                                SettingsScreen(appPreferences)
+                        } else {
+                            Scaffold(
+                                bottomBar = {
+                                    NavigationBar {
+                                        Destination.values().forEach { destination ->
+                                            NavigationBarItem(
+                                                selected = isSelected(destination),
+                                                onClick = { navigateTo(destination) },
+                                                icon = {},
+                                                label = { Text(destination.label) },
+                                            )
+                                        }
+                                    }
+                                },
+                            ) { padding ->
+                                NavHostContent(
+                                    navController = navController,
+                                    healthConnectManager = healthConnectManager,
+                                    appPreferences = appPreferences,
+                                    isWideScreen = isWideScreen,
+                                    modifier = Modifier.padding(padding).fillMaxSize(),
+                                )
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavHostContent(
+    navController: NavHostController,
+    healthConnectManager: HealthConnectManager,
+    appPreferences: AppPreferences,
+    isWideScreen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(contentAlignment = Alignment.TopCenter, modifier = modifier) {
+        NavHost(
+            navController = navController,
+            startDestination = Destination.HOME.route,
+            modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
+        ) {
+            composable(Destination.HOME.route) {
+                HomeScreen(healthConnectManager, appPreferences)
+            }
+            composable(Destination.DASHBOARD.route) {
+                DashboardScreen(healthConnectManager, isWideScreen)
+            }
+            composable(Destination.SETTINGS.route) {
+                SettingsScreen(appPreferences)
             }
         }
     }

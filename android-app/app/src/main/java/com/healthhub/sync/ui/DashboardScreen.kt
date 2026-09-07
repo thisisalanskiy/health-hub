@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,7 +32,7 @@ import java.time.temporal.ChronoUnit
 private val RANGE_OPTIONS = listOf(7, 30, 90)
 
 @Composable
-fun DashboardScreen(healthConnectManager: HealthConnectManager) {
+fun DashboardScreen(healthConnectManager: HealthConnectManager, isWideScreen: Boolean) {
     var selectedDays by remember { mutableStateOf(30) }
     var rawData by remember { mutableStateOf<DashboardRawData?>(null) }
     val zone = remember { ZoneId.systemDefault() }
@@ -55,21 +58,23 @@ fun DashboardScreen(healthConnectManager: HealthConnectManager) {
             return@Column
         }
 
-        LazyColumn(modifier = Modifier.padding(top = 16.dp)) {
-            item {
+        // Same four charts (weight/steps/heart-rate/sleep-stages) either way; only the
+        // container arranging them changes based on available width.
+        val charts: List<@Composable () -> Unit> = listOf(
+            {
                 Text("Weight", style = MaterialTheme.typography.titleMedium)
                 LineChart(series = DashboardAggregator.dailyWeightTrend(data, zone))
-            }
-            item {
+            },
+            {
                 Text("Steps", style = MaterialTheme.typography.titleMedium)
                 BarChart(series = DashboardAggregator.dailySteps(data, zone))
-            }
-            item {
+            },
+            {
                 Text("Heart rate (avg)", style = MaterialTheme.typography.titleMedium)
                 val (_, avg, _) = DashboardAggregator.dailyHeartRate(data, zone)
                 LineChart(series = avg)
-            }
-            item {
+            },
+            {
                 Text("Sleep stages", style = MaterialTheme.typography.titleMedium)
                 StackedBarChart(
                     seriesByStack = DashboardAggregator.nightlySleepStages(data, zone),
@@ -81,6 +86,19 @@ fun DashboardScreen(healthConnectManager: HealthConnectManager) {
                         "other" to Color(0xFF888888),
                     ),
                 )
+            },
+        )
+
+        if (isWideScreen) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                items(charts.size) { index -> charts[index]() }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.padding(top = 16.dp)) {
+                items(charts.size) { index -> charts[index]() }
             }
         }
     }
