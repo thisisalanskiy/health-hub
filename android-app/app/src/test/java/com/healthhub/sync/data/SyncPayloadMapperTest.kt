@@ -4,6 +4,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
+import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import org.junit.Assert.assertEquals
@@ -12,16 +13,17 @@ import org.junit.Test
 import java.time.Instant
 
 private fun meta(id: String, packageName: String): Metadata {
-    val metadataClass = Metadata::class.java
-    val constructor = metadataClass.declaredConstructors[0]
+    val constructor = Metadata::class.java.getDeclaredConstructor(
+        Int::class.javaPrimitiveType,
+        String::class.java,
+        DataOrigin::class.java,
+        Instant::class.java,
+        String::class.java,
+        Long::class.javaPrimitiveType,
+        Device::class.java,
+    )
     constructor.isAccessible = true
-    // Try to call with just the parameters we need, letting defaults handle the rest
-    return try {
-        constructor.newInstance(0, id, DataOrigin(packageName)) as Metadata
-    } catch (e: Exception) {
-        // If that doesn't work, try with more parameters
-        constructor.newInstance(0, id, DataOrigin(packageName), Instant.now(), null, 0L, null) as Metadata
-    }
+    return constructor.newInstance(0, id, DataOrigin(packageName), Instant.now(), null, 0L, null) as Metadata
 }
 
 class SyncPayloadMapperTest {
