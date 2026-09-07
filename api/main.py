@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from tdee import compute_tdee_series
@@ -13,6 +13,13 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://hcuser:hcpassword@localhost:5432/health_dashboard",
 )
+
+INGEST_API_KEY = os.environ.get("INGEST_API_KEY")
+
+
+def require_ingest_api_key(x_api_key: str = Header(default=None)):
+    if INGEST_API_KEY and x_api_key != INGEST_API_KEY:
+        raise HTTPException(status_code=401, detail="missing or invalid X-API-Key")
 
 app = FastAPI(title="Health Connect Ingestion API")
 
@@ -107,7 +114,7 @@ def _extract_records(payload: dict) -> dict:
     return buckets
 
 
-@app.post("/ingest")
+@app.post("/ingest", dependencies=[Depends(require_ingest_api_key)])
 async def ingest(request: Request):
     payload = await request.json()
     buckets = _extract_records(payload)
