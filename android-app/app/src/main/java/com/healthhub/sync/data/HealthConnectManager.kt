@@ -46,14 +46,28 @@ data class FetchChangesResult(
 
 class HealthConnectManager(private val context: Context) {
 
-    val requiredPermissions: Set<String> = RECORD_TYPES
+    // Health Connect rejects a permission request that bundles
+    // READ_HEALTH_DATA_IN_BACKGROUND together with first-time foreground read
+    // permissions (its request activity finishes itself immediately, granting
+    // nothing) — background access must be requested as its own separate step,
+    // after the foreground permissions are already granted. Hence the split.
+    val foregroundPermissions: Set<String> = RECORD_TYPES
         .map { HealthPermission.getReadPermission(it) }
-        .toSet() + HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+        .toSet()
+
+    val backgroundPermission: String = HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+
+    val requiredPermissions: Set<String> = foregroundPermissions + backgroundPermission
 
     private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
 
     suspend fun isAvailable(): Boolean =
         HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+
+    suspend fun hasForegroundPermissions(): Boolean {
+        val granted = client.permissionController.getGrantedPermissions()
+        return granted.containsAll(foregroundPermissions)
+    }
 
     suspend fun hasAllPermissions(): Boolean {
         val granted = client.permissionController.getGrantedPermissions()

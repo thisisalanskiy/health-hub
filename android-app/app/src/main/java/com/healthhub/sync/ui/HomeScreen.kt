@@ -31,27 +31,44 @@ import java.util.Locale
 @Composable
 fun HomeScreen(healthConnectManager: HealthConnectManager, appPreferences: AppPreferences) {
     val context = LocalContext.current
-    var hasPermissions by remember { mutableStateOf(false) }
+    var hasForegroundPermissions by remember { mutableStateOf(false) }
+    var hasAllPermissions by remember { mutableStateOf(false) }
     val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
 
-    val permissionLauncher = rememberLauncherForActivityResult(
+    // Foreground read permissions — requested first, as their own batch.
+    val foregroundLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
     ) { granted ->
-        hasPermissions = granted.containsAll(healthConnectManager.requiredPermissions)
+        hasForegroundPermissions = granted.containsAll(healthConnectManager.foregroundPermissions)
+        hasAllPermissions = granted.containsAll(healthConnectManager.requiredPermissions)
+    }
+
+    // Background read permission — must be requested separately, only after
+    // the foreground permissions are already granted (see HealthConnectManager).
+    val backgroundLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted ->
+        hasAllPermissions = granted.containsAll(healthConnectManager.requiredPermissions)
     }
 
     LaunchedEffect(Unit) {
-        hasPermissions = healthConnectManager.hasAllPermissions()
+        hasForegroundPermissions = healthConnectManager.hasForegroundPermissions()
+        hasAllPermissions = healthConnectManager.hasAllPermissions()
         SyncScheduler.schedulePeriodic(context)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Health Hub Sync", style = MaterialTheme.typography.headlineSmall)
 
-        if (!hasPermissions) {
+        if (!hasForegroundPermissions) {
             Text("Health Connect permissions not granted yet.")
-            Button(onClick = { permissionLauncher.launch(healthConnectManager.requiredPermissions) }) {
+            Button(onClick = { foregroundLauncher.launch(healthConnectManager.foregroundPermissions) }) {
                 Text("Grant permissions")
+            }
+        } else if (!hasAllPermissions) {
+            Text("Health Connect permissions granted — background sync needs one more step.")
+            Button(onClick = { backgroundLauncher.launch(setOf(healthConnectManager.backgroundPermission)) }) {
+                Text("Enable background sync")
             }
         } else {
             Text("Health Connect permissions granted.")
