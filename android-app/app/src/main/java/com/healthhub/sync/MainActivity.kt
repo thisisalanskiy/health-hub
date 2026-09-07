@@ -35,12 +35,10 @@ import androidx.navigation.compose.rememberNavController
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.ui.DashboardScreen
-import com.healthhub.sync.ui.HomeScreen
 import com.healthhub.sync.ui.SettingsScreen
 import com.healthhub.sync.ui.theme.HealthHubSyncTheme
 
 private enum class Destination(val route: String, val label: String, val icon: String) {
-    HOME("home", "Home", "🏠"),
     DASHBOARD("dashboard", "Dashboard", "📊"),
     SETTINGS("settings", "Settings", "⚙️"),
 }
@@ -153,14 +151,11 @@ private fun NavHostContent(
             startDestination = Destination.DASHBOARD.route,
             modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
         ) {
-            composable(Destination.HOME.route) {
-                HomeScreen(healthConnectManager, appPreferences)
-            }
             composable(Destination.DASHBOARD.route) {
                 DashboardScreen(healthConnectManager, appPreferences, isWideScreen)
             }
             composable(Destination.SETTINGS.route) {
-                SettingsScreen(appPreferences)
+                SettingsScreen(appPreferences, healthConnectManager)
             }
         }
     }
