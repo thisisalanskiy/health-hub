@@ -56,7 +56,7 @@ fun DashboardScreen(
     LaunchedEffect(selectedDays) {
         val end = Instant.now()
         val start = end.minus(selectedDays.toLong(), ChronoUnit.DAYS)
-        rawData = healthConnectManager.readForDashboard(start, end)
+        rawData = healthConnectManager.readAllRecords(start, end)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {

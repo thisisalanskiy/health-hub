@@ -139,11 +139,21 @@ class HealthConnectManager(private val context: Context) {
         return FetchChangesResult(payload, newTokens, anyTokenExpired)
     }
 
-    suspend fun readForDashboard(start: Instant, end: Instant): DashboardRawData {
+    /**
+     * Reads all 7 Health Connect record types directly (not via the Changes API) over
+     * [start, end]. Used both for the offline dashboard and for one-shot historical
+     * backfill (Task 6) — Health Connect retains actual records indefinitely regardless
+     * of the Changes API's ~30-day changes-log window, so this can reach arbitrarily far
+     * into the past.
+     */
+    suspend fun readAllRecords(start: Instant, end: Instant): DashboardRawData {
         val range = TimeRangeFilter.between(start, end)
         return DashboardRawData(
             weights = client.readRecords(ReadRecordsRequest(WeightRecord::class, range)).records,
+            nutrition = client.readRecords(ReadRecordsRequest(NutritionRecord::class, range)).records,
+            exercises = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records,
             heartRates = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records,
+            restingHeartRates = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range)).records,
             steps = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records,
             sleeps = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records,
         )
