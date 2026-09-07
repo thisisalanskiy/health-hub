@@ -250,3 +250,37 @@ fun StackedBarChart(
         }
     }
 }
+
+@Composable
+fun MultiLineChart(
+    seriesByLine: Map<String, ChartSeries>,
+    colors: Map<String, Color>,
+    modifier: Modifier = Modifier,
+) {
+    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textPaint = rememberAxisPaint(axisColor)
+    val allValues = seriesByLine.values.flatMap { it.values }
+    val allLabels = seriesByLine.values.maxByOrNull { it.labels.size }?.labels ?: emptyList()
+
+    Canvas(modifier = modifier.fillMaxWidth().height(180.dp)) {
+        if (allValues.isEmpty()) return@Canvas
+        val plot = plotArea(size)
+        val minV = allValues.min()
+        val maxV = allValues.max()
+        val range = (maxV - minV).takeIf { it > 0f } ?: 1f
+
+        drawAxes(plot, minV, maxV, allLabels, axisColor, textPaint)
+
+        for ((name, series) in seriesByLine) {
+            if (series.values.size < 2) continue
+            val stepX = plot.width / (series.values.size - 1)
+            val points = series.values.mapIndexed { index, value ->
+                Offset(plot.left + index * stepX, plot.bottom - ((value - minV) / range) * plot.height)
+            }
+            val color = colors[name] ?: Color.Gray
+            for (i in 0 until points.size - 1) {
+                drawLine(color = color, start = points[i], end = points[i + 1], strokeWidth = 4f)
+            }
+        }
+    }
+}

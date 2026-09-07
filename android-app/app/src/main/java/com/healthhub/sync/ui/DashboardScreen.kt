@@ -40,11 +40,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
+import com.healthhub.sync.dashboard.ChartSeries
 import com.healthhub.sync.dashboard.DashboardAggregator
 import com.healthhub.sync.dashboard.DashboardRawData
 import com.healthhub.sync.dashboard.trendDelta
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
+import com.healthhub.sync.digest.HealthApiClient
+import com.healthhub.sync.digest.TdeeResponse
 import com.healthhub.sync.digest.prepareForClaude
 import com.healthhub.sync.sync.SyncScheduler
 import kotlinx.coroutines.CancellationException
@@ -73,6 +76,8 @@ fun DashboardScreen(
     var hasAllPermissions by remember { mutableStateOf(false) }
     var digestStatus by remember { mutableStateOf<String?>(null) }
     var digestRunning by remember { mutableStateOf(false) }
+    var tdeeData by remember { mutableStateOf<TdeeResponse?>(null) }
+    var tdeeError by remember { mutableStateOf<String?>(null) }
     val zone = remember { ZoneId.systemDefault() }
     val scope = rememberCoroutineScope()
     val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
@@ -140,6 +145,26 @@ fun DashboardScreen(
             throw e
         } catch (e: Exception) {
             loadError = "Couldn't read from Health Connect: ${e.message ?: e::class.simpleName}"
+            null
+        }
+    }
+
+    // Separate from the Health-Connect-gated effect above: TDEE comes from the
+    // server over Tailscale, not Health Connect, so it depends only on the
+    // selected date range and the configured server URL — not on permissions.
+    LaunchedEffect(selectedDays) {
+        tdeeError = null
+        val baseUrl = appPreferences.getBaseUrl()
+        if (baseUrl.isNullOrBlank()) {
+            tdeeData = null
+            return@LaunchedEffect
+        }
+        tdeeData = try {
+            HealthApiClient(baseUrl).getTdee(selectedDays)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            tdeeError = "TDEE unavailable: ${e.message ?: e::class.simpleName}"
             null
         }
     }
@@ -267,6 +292,32 @@ fun DashboardScreen(
                             ),
                         )
                     },
+                    {
+                        Text("TDEE (kcal/day)", style = MaterialTheme.typography.titleMedium)
+                        val tdee = tdeeData
+                        val err = tdeeError
+                        when {
+                            tdee != null && (tdee.calculatedTdee.any { it != null } || tdee.macrofactorTdee.any { it != null }) -> {
+                                val calculated = buildTdeeSeries(tdee.dates, tdee.calculatedTdee)
+                                val macrofactor = buildTdeeSeries(tdee.dates, tdee.macrofactorTdee)
+                                val latestCalculated = tdee.calculatedTdee.lastOrNull { it != null }
+                                val latestMacrofactor = tdee.macrofactorTdee.lastOrNull { it != null }
+                                Text(
+                                    "Calculated: ${latestCalculated?.let { "%.0f".format(it) } ?: "n/a"} · MacroFactor: ${latestMacrofactor?.let { "%.0f".format(it) } ?: "n/a"}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                MultiLineChart(
+                                    seriesByLine = mapOf("calculated" to calculated, "macrofactor" to macrofactor),
+                                    colors = mapOf(
+                                        "calculated" to Color(0xFF1565C0),
+                                        "macrofactor" to Color(0xFFE65100),
+                                    ),
+                                )
+                            }
+                            err != null -> Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            else -> Text("Set your server URL in Settings to see TDEE.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    },
                 )
 
                 if (isWideScreen) {
@@ -320,6 +371,11 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+private fun buildTdeeSeries(dates: List<String>, values: List<Double?>): ChartSeries {
+    val pairs = dates.zip(values).filter { it.second != null }
+    return ChartSeries(pairs.map { it.first }, pairs.map { it.second!!.toFloat() })
 }
 
 @Composable
