@@ -24,40 +24,45 @@ class SyncWorker(
     }
 
     private suspend fun runSync(prefs: AppPreferences, healthConnect: HealthConnectManager): SyncOutcome {
-        if (!healthConnect.isAvailable()) {
-            return SyncOutcome.Failure("Health Connect not available on this device")
-        }
-        if (!healthConnect.hasAllPermissions()) {
-            return SyncOutcome.Failure("Health Connect permissions not granted")
-        }
+        return try {
+            if (!healthConnect.isAvailable()) {
+                return SyncOutcome.Failure("Health Connect not available on this device")
+            }
+            if (!healthConnect.hasAllPermissions()) {
+                return SyncOutcome.Failure("Health Connect permissions not granted")
+            }
 
-        val baseUrl = prefs.getBaseUrl()
-        if (baseUrl.isNullOrBlank()) {
-            return SyncOutcome.Failure("no server URL configured")
-        }
-        val apiKey = prefs.getApiKey()
+            val baseUrl = prefs.getBaseUrl()
+            if (baseUrl.isNullOrBlank()) {
+                return SyncOutcome.Failure("no server URL configured")
+            }
+            val apiKey = prefs.getApiKey()
 
-        val tokens = healthConnect.getOrCreateChangesToken(prefs)
-        val (payload, newTokens) = healthConnect.fetchChangesAndBuildPayload(tokens)
+            val tokens = healthConnect.getOrCreateChangesToken(prefs)
+            val (payload, newTokens) = healthConnect.fetchChangesAndBuildPayload(tokens)
 
-        if (payload == null) {
-            // Nothing changed — still safe to advance tokens, since there was
-            // no payload that could have failed to send.
-            newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
-            return SyncOutcome.Success(recordsSent = false)
-        }
-
-        val client = IngestApiClient(baseUrl = baseUrl, apiKey = apiKey)
-        val result = client.post(payload)
-
-        return result.fold(
-            onSuccess = {
-                // Only advance the changes tokens after a confirmed successful
-                // POST — see Global Constraints in the plan this came from.
+            if (payload == null) {
+                // Nothing changed — still safe to advance tokens, since there was
+                // no payload that could have failed to send.
                 newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
-                SyncOutcome.Success(recordsSent = true)
-            },
-            onFailure = { e -> SyncOutcome.Failure(e.message ?: "unknown ingest failure") },
-        )
+                return SyncOutcome.Success(recordsSent = false)
+            }
+
+            val client = IngestApiClient(baseUrl = baseUrl, apiKey = apiKey)
+            val result = client.post(payload)
+
+            result.fold(
+                onSuccess = {
+                    // Only advance the changes tokens after a confirmed successful
+                    // POST — see Global Constraints in the plan this came from.
+                    newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
+                    SyncOutcome.Success(recordsSent = true)
+                },
+                onFailure = { e -> SyncOutcome.Failure(e.message ?: "unknown ingest failure") },
+            )
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            SyncOutcome.Failure(e.message ?: e::class.simpleName ?: "unexpected sync error")
+        }
     }
 }
