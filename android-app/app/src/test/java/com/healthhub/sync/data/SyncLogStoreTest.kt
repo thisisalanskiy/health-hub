@@ -17,7 +17,7 @@ class SyncLogStoreTest {
 
     @Test
     fun `list is capped at maxEntries, dropping oldest`() {
-        val existing = (0 until 20).map { SyncLogEntry(it.toLong(), true, "e$it") }
+        val existing = (19 downTo 0).map { SyncLogEntry(it.toLong(), true, "e$it") }
 
         val updated = trimSyncLog(existing, SyncLogEntry(20, true, "newest"), maxEntries = 20)
 
@@ -25,5 +25,14 @@ class SyncLogStoreTest {
         assertEquals(20L, updated.first().timestampMillis)
         // oldest entry (timestamp 0) should have been dropped
         assertEquals(false, updated.any { it.timestampMillis == 0L })
+    }
+
+    @Test
+    fun `sequential appends maintain newest-first order`() {
+        var log = trimSyncLog(emptyList(), SyncLogEntry(100, true, "first"))
+        log = trimSyncLog(log, SyncLogEntry(200, true, "second"))
+        log = trimSyncLog(log, SyncLogEntry(300, true, "third"))
+
+        assertEquals(listOf(300L, 200L, 100L), log.map { it.timestampMillis })
     }
 }
