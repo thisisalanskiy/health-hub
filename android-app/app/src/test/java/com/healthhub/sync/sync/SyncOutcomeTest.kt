@@ -36,4 +36,11 @@ class SyncOutcomeTest {
             entry.message,
         )
     }
+
+    @Test
+    fun `success mentions records the server skipped`() {
+        val entry = describeOutcome(SyncOutcome.Success(recordsSent = true, skippedByServer = 2))
+        assertTrue(entry.success)
+        assertEquals("synced new records (2 skipped by server)", entry.message)
+    }
 }

@@ -62,4 +62,29 @@ class IngestApiClientTest {
 
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `parses skipped count from a successful response body`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"status":"ok","ingested":{"weight":1,"skipped":2}}"""),
+        )
+        val client = IngestApiClient(baseUrl = server.url("/").toString().trimEnd('/'), apiKey = null)
+
+        val result = client.post(samplePayload())
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull())
+    }
+
+    @Test
+    fun `defaults skipped count to zero when absent from the response body`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"status":"ok"}"""))
+        val client = IngestApiClient(baseUrl = server.url("/").toString().trimEnd('/'), apiKey = null)
+
+        val result = client.post(samplePayload())
+
+        assertTrue(result.isSuccess)
+        assertEquals(0, result.getOrNull())
+    }
 }

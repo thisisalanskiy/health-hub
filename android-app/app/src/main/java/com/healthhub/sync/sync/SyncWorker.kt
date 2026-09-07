@@ -54,11 +54,15 @@ class SyncWorker(
             val result = client.post(payload)
 
             result.fold(
-                onSuccess = {
+                onSuccess = { skippedByServer ->
                     // Only advance the changes tokens after a confirmed successful
                     // POST — see Global Constraints in the plan this came from.
                     newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
-                    SyncOutcome.Success(recordsSent = true, tokensReset = fetchResult.anyTokenExpired)
+                    SyncOutcome.Success(
+                        recordsSent = true,
+                        tokensReset = fetchResult.anyTokenExpired,
+                        skippedByServer = skippedByServer,
+                    )
                 },
                 onFailure = { e -> SyncOutcome.Failure(e.message ?: "unknown ingest failure") },
             )
