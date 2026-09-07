@@ -1,5 +1,7 @@
 package com.healthhub.sync.digest
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object ClaudeDigestFormatter {
@@ -20,9 +22,14 @@ object ClaudeDigestFormatter {
         recovery: RecoveryResponse,
         sleep: SleepResponse,
         workouts: WorkoutsResponse,
+        bodyTrends: BodyTrendsResponse,
     ): String {
         val lines = mutableListOf<String>()
-        lines += "Here's my health data from the last $days days — please give me an analysis and any insights."
+        val today = LocalDate.now()
+        val rangeStart = today.minusDays((days - 1).toLong())
+        val dateFmt = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+        lines += "Here's my health data from ${rangeStart.format(dateFmt)} to ${today.format(dateFmt)} " +
+            "(last $days days) — please give me an analysis and any insights."
         lines += ""
 
         val weightTrend = weightTrendDelta(weight)
@@ -72,14 +79,26 @@ object ClaudeDigestFormatter {
         val avgRhr = average(recovery.rhr.map { it.v })
         lines += "Recovery: " + (avgRhr?.let { fmt("RHR avg %.0f bpm", it) } ?: "no recovery data")
 
-        val latestWeek = workouts.weekly.lastOrNull()
-        lines += buildString {
-            append("Workouts: ")
-            if (latestWeek != null) {
-                append("${latestWeek.sessions} sessions, ${latestWeek.totalMin.toInt()} min total this week")
-            } else {
-                append("no workouts logged")
+        val latestVo2Max = bodyTrends.vo2Max.lastOrNull { it != null }
+        val latestBodyFat = bodyTrends.bodyFatPercent.lastOrNull { it != null }
+        val latestBmr = bodyTrends.bmrKcal.lastOrNull { it != null }
+        if (latestVo2Max != null || latestBodyFat != null || latestBmr != null) {
+            lines += buildString {
+                append("Body trends: ")
+                val parts = mutableListOf<String>()
+                latestVo2Max?.let { parts += fmt("VO2 max %.1f mL/kg/min", it) }
+                latestBodyFat?.let { parts += fmt("body fat %.1f%%", it * 100.0) }
+                latestBmr?.let { parts += fmt("BMR %.0f kcal/day", it) }
+                append(parts.joinToString(", "))
             }
+        }
+
+        val totalSessions = workouts.weekly.sumOf { it.sessions }
+        val totalMin = workouts.weekly.sumOf { it.totalMin }
+        lines += if (totalSessions > 0) {
+            "Workouts: $totalSessions sessions, ${totalMin.toInt()} min total over the last $days days"
+        } else {
+            "Workouts: no workouts logged"
         }
 
         return lines.joinToString("\n")

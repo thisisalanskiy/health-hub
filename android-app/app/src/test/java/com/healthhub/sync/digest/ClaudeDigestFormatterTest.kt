@@ -1,5 +1,6 @@
 package com.healthhub.sync.digest
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
@@ -17,6 +18,7 @@ class ClaudeDigestFormatterTest {
             recovery = RecoveryResponse(rhr = listOf(RecoveryPoint("2026-09-06", 58.0), RecoveryPoint("2026-09-07", 59.0))),
             sleep = SleepResponse(deep = listOf(60.0, 66.0), rem = listOf(90.0, 96.0), core = listOf(240.0, 250.0), awake = listOf(10.0, 8.0), other = listOf(0.0, 0.0)),
             workouts = WorkoutsResponse(weekly = listOf(WeeklyWorkout("2026-09-01", 210.0, 4))),
+            bodyTrends = BodyTrendsResponse(),
         )
 
         assertTrue(text.contains("last 7 days"))
@@ -36,6 +38,7 @@ class ClaudeDigestFormatterTest {
             recovery = RecoveryResponse(),
             sleep = SleepResponse(),
             workouts = WorkoutsResponse(),
+            bodyTrends = BodyTrendsResponse(),
         )
 
         assertTrue(text.isNotBlank())
@@ -57,6 +60,7 @@ class ClaudeDigestFormatterTest {
                 recovery = RecoveryResponse(rhr = listOf(RecoveryPoint("2026-09-06", 58.0), RecoveryPoint("2026-09-07", 59.0))),
                 sleep = SleepResponse(deep = listOf(60.0, 66.0), rem = listOf(90.0, 96.0), core = listOf(240.0, 250.0), awake = listOf(10.0, 8.0), other = listOf(0.0, 0.0)),
                 workouts = WorkoutsResponse(weekly = listOf(WeeklyWorkout("2026-09-01", 210.0, 4))),
+                bodyTrends = BodyTrendsResponse(),
             )
 
             assertTrue(text.contains("77.4 kg"))
@@ -66,5 +70,62 @@ class ClaudeDigestFormatterTest {
         } finally {
             Locale.setDefault(original)
         }
+    }
+
+    @Test
+    fun `includes the actual calendar date range, not just a day count`() {
+        val today = java.time.LocalDate.now()
+        val expectedStart = today.minusDays(6)
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d", Locale.US)
+
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(), recovery = RecoveryResponse(), sleep = SleepResponse(),
+            workouts = WorkoutsResponse(), bodyTrends = BodyTrendsResponse(),
+        )
+
+        assertTrue(text.contains(expectedStart.format(fmt)))
+        assertTrue(text.contains(today.format(fmt)))
+    }
+
+    @Test
+    fun `sums workouts across every returned week, not just the last one`() {
+        val workouts = WorkoutsResponse(weekly = listOf(
+            WeeklyWorkout(week = "2026-08-24", totalMin = 120.0, sessions = 3),
+            WeeklyWorkout(week = "2026-08-31", totalMin = 40.0, sessions = 1),
+        ))
+
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(), recovery = RecoveryResponse(), sleep = SleepResponse(),
+            workouts = workouts, bodyTrends = BodyTrendsResponse(),
+        )
+
+        assertTrue(text.contains("4 sessions"))
+        assertTrue(text.contains("160 min"))
+        assertFalse(text.contains("1 sessions"))
+    }
+
+    @Test
+    fun `includes body trends when present`() {
+        val bodyTrends = BodyTrendsResponse(
+            dates = listOf("2026-09-01", "2026-09-02"),
+            vo2Max = listOf(42.5, null),
+            bodyFatPercent = listOf(0.257, null),
+            bmrKcal = listOf(1680.0, null),
+        )
+
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(), recovery = RecoveryResponse(), sleep = SleepResponse(),
+            workouts = WorkoutsResponse(), bodyTrends = bodyTrends,
+        )
+
+        assertTrue(text.contains("42.5"))
+        assertTrue(text.contains("25.7"))
+        assertTrue(text.contains("1680"))
     }
 }
