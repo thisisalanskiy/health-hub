@@ -39,13 +39,15 @@ class SyncWorker(
             val apiKey = prefs.getApiKey()
 
             val tokens = healthConnect.getOrCreateChangesToken(prefs)
-            val (payload, newTokens) = healthConnect.fetchChangesAndBuildPayload(tokens)
+            val fetchResult = healthConnect.fetchChangesAndBuildPayload(tokens)
+            val payload = fetchResult.payload
+            val newTokens = fetchResult.newTokens
 
             if (payload == null) {
                 // Nothing changed — still safe to advance tokens, since there was
                 // no payload that could have failed to send.
                 newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
-                return SyncOutcome.Success(recordsSent = false)
+                return SyncOutcome.Success(recordsSent = false, tokensReset = fetchResult.anyTokenExpired)
             }
 
             val client = IngestApiClient(baseUrl = baseUrl, apiKey = apiKey)
@@ -56,7 +58,7 @@ class SyncWorker(
                     // Only advance the changes tokens after a confirmed successful
                     // POST — see Global Constraints in the plan this came from.
                     newTokens.forEach { (key, token) -> prefs.setChangesToken(key, token) }
-                    SyncOutcome.Success(recordsSent = true)
+                    SyncOutcome.Success(recordsSent = true, tokensReset = fetchResult.anyTokenExpired)
                 },
                 onFailure = { e -> SyncOutcome.Failure(e.message ?: "unknown ingest failure") },
             )

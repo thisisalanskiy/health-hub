@@ -26,4 +26,14 @@ class SyncOutcomeTest {
         assertEquals(false, entry.success)
         assertEquals("HTTP 401", entry.message)
     }
+
+    @Test
+    fun `success with a reset token is called out distinctly`() {
+        val entry = describeOutcome(SyncOutcome.Success(recordsSent = false, tokensReset = true))
+        assertTrue(entry.success)
+        assertEquals(
+            "synced, but one or more Health Connect changes tokens had expired and were reset",
+            entry.message,
+        )
+    }
 }

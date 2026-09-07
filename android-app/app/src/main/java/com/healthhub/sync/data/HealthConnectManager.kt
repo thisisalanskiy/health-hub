@@ -28,6 +28,22 @@ private val RECORD_TYPES: List<KClass<out androidx.health.connect.client.records
     SleepSessionRecord::class,
 )
 
+private val RECORD_TYPES_BY_KEY: Map<String, KClass<out androidx.health.connect.client.records.Record>> =
+    RECORD_TYPES.associateBy { it.simpleName!! }
+
+/**
+ * Result of [HealthConnectManager.fetchChangesAndBuildPayload].
+ *
+ * @property anyTokenExpired true if at least one record type's changes token had expired
+ * (per Health Connect's ~30 day retention window) and was reset to a fresh baseline during
+ * this call, meaning any changes between the expiry and now for that type were unavoidably lost.
+ */
+data class FetchChangesResult(
+    val payload: IngestPayload?,
+    val newTokens: Map<String, String>,
+    val anyTokenExpired: Boolean,
+)
+
 class HealthConnectManager(private val context: Context) {
 
     val requiredPermissions: Set<String> = RECORD_TYPES
@@ -61,7 +77,7 @@ class HealthConnectManager(private val context: Context) {
         return result
     }
 
-    suspend fun fetchChangesAndBuildPayload(tokens: Map<String, String>): Pair<IngestPayload?, Map<String, String>> {
+    suspend fun fetchChangesAndBuildPayload(tokens: Map<String, String>): FetchChangesResult {
         val weights = mutableListOf<WeightRecord>()
         val nutrition = mutableListOf<NutritionRecord>()
         val exercises = mutableListOf<ExerciseSessionRecord>()
@@ -70,6 +86,7 @@ class HealthConnectManager(private val context: Context) {
         val steps = mutableListOf<StepsRecord>()
         val sleeps = mutableListOf<SleepSessionRecord>()
         val newTokens = mutableMapOf<String, String>()
+        var anyTokenExpired = false
 
         for ((typeKey, token) in tokens) {
             var currentToken = token
@@ -87,6 +104,17 @@ class HealthConnectManager(private val context: Context) {
                         is SleepSessionRecord -> sleeps += record
                     }
                 }
+                if (response.changesTokenExpired) {
+                    // The token outlived Health Connect's retention window and is no
+                    // longer usable. Recover by minting a fresh baseline for this
+                    // record type — equivalent to a first-ever sync for it — rather
+                    // than getting permanently stuck advancing a dead token forever.
+                    // Any changes between the expiry and now are unavoidably lost.
+                    anyTokenExpired = true
+                    val recordType = RECORD_TYPES_BY_KEY.getValue(typeKey)
+                    currentToken = client.getChangesToken(ChangesTokenRequest(setOf(recordType)))
+                    break
+                }
                 currentToken = response.nextChangesToken
                 if (!response.hasMore) break
             }
@@ -94,7 +122,7 @@ class HealthConnectManager(private val context: Context) {
         }
 
         val payload = buildIngestPayload(weights, nutrition, exercises, heartRates, restingHeartRates, steps, sleeps)
-        return payload to newTokens
+        return FetchChangesResult(payload, newTokens, anyTokenExpired)
     }
 
     suspend fun readForDashboard(start: Instant, end: Instant): DashboardRawData {
