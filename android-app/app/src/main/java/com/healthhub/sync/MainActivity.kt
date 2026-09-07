@@ -150,14 +150,14 @@ private fun NavHostContent(
     Box(contentAlignment = Alignment.TopCenter, modifier = modifier) {
         NavHost(
             navController = navController,
-            startDestination = Destination.HOME.route,
+            startDestination = Destination.DASHBOARD.route,
             modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
         ) {
             composable(Destination.HOME.route) {
                 HomeScreen(healthConnectManager, appPreferences)
             }
             composable(Destination.DASHBOARD.route) {
-                DashboardScreen(healthConnectManager, isWideScreen)
+                DashboardScreen(healthConnectManager, appPreferences, isWideScreen)
             }
             composable(Destination.SETTINGS.route) {
                 SettingsScreen(appPreferences)

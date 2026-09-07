@@ -5,14 +5,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,16 +21,12 @@ import androidx.health.connect.client.PermissionController
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.sync.SyncScheduler
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun HomeScreen(healthConnectManager: HealthConnectManager, appPreferences: AppPreferences) {
     val context = LocalContext.current
     var hasForegroundPermissions by remember { mutableStateOf(false) }
     var hasAllPermissions by remember { mutableStateOf(false) }
-    val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
 
     // Foreground read permissions — requested first, as their own batch.
     val foregroundLauncher = rememberLauncherForActivityResult(
@@ -81,12 +74,10 @@ fun HomeScreen(healthConnectManager: HealthConnectManager, appPreferences: AppPr
             Text("Sync Now")
         }
 
-        Text("Recent syncs", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-        LazyColumn {
-            items(log) { entry ->
-                val formatted = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(entry.timestampMillis))
-                Text("$formatted — ${if (entry.success) "OK" else "FAILED"}: ${entry.message}")
-            }
-        }
+        Text(
+            "Sync history moved to Settings.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 16.dp),
+        )
     }
 }

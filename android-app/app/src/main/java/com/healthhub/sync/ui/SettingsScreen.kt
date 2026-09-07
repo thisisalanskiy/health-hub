@@ -3,12 +3,15 @@ package com.healthhub.sync.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,12 +21,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.healthhub.sync.data.AppPreferences
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(appPreferences: AppPreferences) {
     var baseUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
 
     LaunchedEffect(Unit) {
         baseUrl = appPreferences.getBaseUrl() ?: ""
@@ -64,6 +71,18 @@ fun SettingsScreen(appPreferences: AppPreferences) {
             modifier = Modifier.padding(top = 16.dp),
         ) {
             Text("Save")
+        }
+
+        Text(
+            "Recent syncs",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 24.dp),
+        )
+        LazyColumn {
+            items(log) { entry ->
+                val formatted = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(entry.timestampMillis))
+                Text("$formatted — ${if (entry.success) "OK" else "FAILED"}: ${entry.message}")
+            }
         }
     }
 }
