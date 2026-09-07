@@ -364,9 +364,8 @@ fun DashboardScreen(
                 if (digestRunning) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
-                    // Generic sparkle/asterisk glyph — NOT Anthropic's actual
-                    // trademarked Claude logo. Swap for a real asset if you have one.
-                    Text("✳️")
+                    // Generic sparkle glyph — NOT Anthropic's actual trademarked Claude logo
+                    Text("✨️")
                 }
             }
         }

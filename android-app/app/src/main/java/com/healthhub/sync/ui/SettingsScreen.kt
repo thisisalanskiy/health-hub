@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.healthhub.sync.BuildConfig
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.data.runFillGap
@@ -89,6 +90,13 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
                 Text("$formatted — ${if (entry.success) "OK" else "FAILED"}: ${entry.message}")
             }
         }
+
+        Text(
+            "Health Hub Sync v${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 
     if (showServerDialog) {
