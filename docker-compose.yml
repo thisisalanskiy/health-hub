@@ -1,0 +1,12 @@
+services:
+  api:
+    build: ./api
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hcuser}:${POSTGRES_PASSWORD:-hcpassword}@host.docker.internal:5432/${POSTGRES_DB:-health_dashboard}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

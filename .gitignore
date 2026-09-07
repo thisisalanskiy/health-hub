@@ -1,0 +1,7 @@
+historical_data/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+.DS_Store
+db/pgdata/
