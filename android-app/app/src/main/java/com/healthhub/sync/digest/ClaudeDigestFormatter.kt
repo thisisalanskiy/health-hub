@@ -1,0 +1,88 @@
+package com.healthhub.sync.digest
+
+object ClaudeDigestFormatter {
+
+    fun format(
+        days: Int,
+        snapshot: SnapshotResponse,
+        weight: WeightResponse,
+        tdee: TdeeResponse,
+        nutrition: NutritionResponse,
+        recovery: RecoveryResponse,
+        sleep: SleepResponse,
+        workouts: WorkoutsResponse,
+    ): String {
+        val lines = mutableListOf<String>()
+        lines += "Here's my health data from the last $days days — please give me an analysis and any insights."
+        lines += ""
+
+        val weightTrend = weightTrendDelta(weight)
+        lines += buildString {
+            append("Weight: ")
+            append(snapshot.weightKg?.let { "%.1f kg".format(it) } ?: "no recent reading")
+            weightTrend?.let { append(" (trend: %+.1f kg over $days days)".format(it)) }
+        }
+
+        val avgCalories = average(nutrition.calories)
+        val latestCalculatedTdee = tdee.calculatedTdee.lastOrNull { it != null }
+        val latestMacrofactorTdee = tdee.macrofactorTdee.lastOrNull { it != null }
+        lines += buildString {
+            append("Calories: ")
+            append(avgCalories?.let { "avg %,.0f kcal/day".format(it) } ?: "no data")
+            if (latestCalculatedTdee != null || latestMacrofactorTdee != null) {
+                append(" (TDEE calculated: ${latestCalculatedTdee?.let { "%,.0f".format(it) } ?: "n/a"}")
+                append(" / MacroFactor: ${latestMacrofactorTdee?.let { "%,.0f".format(it) } ?: "n/a"})")
+            }
+        }
+
+        val avgProtein = average(nutrition.protein)
+        val avgFat = average(nutrition.fat)
+        val avgCarbs = average(nutrition.carbs)
+        if (avgProtein != null || avgFat != null || avgCarbs != null) {
+            lines += "Protein/Fat/Carbs: avg %.0fg / %.0fg / %.0fg per day".format(
+                avgProtein ?: 0.0, avgFat ?: 0.0, avgCarbs ?: 0.0,
+            )
+        }
+
+        val nightlySleepMinutes = sleep.deep.indices.map { i ->
+            sleep.deep.getOrElse(i) { 0.0 } + sleep.rem.getOrElse(i) { 0.0 } +
+                sleep.core.getOrElse(i) { 0.0 } + sleep.other.getOrElse(i) { 0.0 }
+        }
+        val avgSleepHours = if (nightlySleepMinutes.isNotEmpty()) nightlySleepMinutes.average() / 60.0 else null
+        val avgDeepHours = if (sleep.deep.isNotEmpty()) sleep.deep.average() / 60.0 else null
+        val avgRemHours = if (sleep.rem.isNotEmpty()) sleep.rem.average() / 60.0 else null
+        lines += buildString {
+            append("Sleep: ")
+            append(avgSleepHours?.let { "avg %.1fh/night".format(it) } ?: "no data")
+            if (avgDeepHours != null && avgRemHours != null) {
+                append(" (deep %.1fh, REM %.1fh)".format(avgDeepHours, avgRemHours))
+            }
+        }
+
+        val avgRhr = average(recovery.rhr.map { it.v })
+        lines += "Recovery: " + (avgRhr?.let { "RHR avg %.0f bpm".format(it) } ?: "no recovery data")
+
+        val latestWeek = workouts.weekly.lastOrNull()
+        lines += buildString {
+            append("Workouts: ")
+            if (latestWeek != null) {
+                append("${latestWeek.sessions} sessions, ${latestWeek.totalMin.toInt()} min total this week")
+            } else {
+                append("no workouts logged")
+            }
+        }
+
+        return lines.joinToString("\n")
+    }
+
+    private fun average(values: List<Double?>): Double? {
+        val nonNull = values.filterNotNull()
+        return if (nonNull.isEmpty()) null else nonNull.average()
+    }
+
+    private fun weightTrendDelta(weight: WeightResponse): Double? {
+        val readings = weight.readings
+        if (readings.size < 2) return null
+        return readings.last().v - readings.first().v
+    }
+}
