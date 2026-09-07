@@ -92,7 +92,7 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
         }
 
         Text(
-            "Health Hub Sync v${BuildConfig.VERSION_NAME}",
+            "Health Hub v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),

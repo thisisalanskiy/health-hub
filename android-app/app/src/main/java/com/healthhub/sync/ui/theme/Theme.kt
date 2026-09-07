@@ -5,7 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Health Hub Sync is dark-only by design (user preference) — it does not
+// Health Hub is dark-only by design (user preference) — it does not
 // follow the system light/dark setting.
 private val HealthHubDarkColors = darkColorScheme(
     primary = Color(0xFF8AB4F8),
