@@ -1,6 +1,15 @@
 package com.healthhub.sync.digest
 
+import java.util.Locale
+
 object ClaudeDigestFormatter {
+
+    /**
+     * Every numeric format in this file goes through here so the digest is pinned to
+     * Locale.US. This text is pasted into a Claude chat, so it must not swing to
+     * comma decimal separators (or other locale digit grouping) on a non-US device.
+     */
+    private fun fmt(pattern: String, vararg args: Any?): String = String.format(Locale.US, pattern, *args)
 
     fun format(
         days: Int,
@@ -19,8 +28,8 @@ object ClaudeDigestFormatter {
         val weightTrend = weightTrendDelta(weight)
         lines += buildString {
             append("Weight: ")
-            append(snapshot.weightKg?.let { "%.1f kg".format(it) } ?: "no recent reading")
-            weightTrend?.let { append(" (trend: %+.1f kg over $days days)".format(it)) }
+            append(snapshot.weightKg?.let { fmt("%.1f kg", it) } ?: "no recent reading")
+            weightTrend?.let { append(fmt(" (trend: %+.1f kg over %d days)", it, days)) }
         }
 
         val avgCalories = average(nutrition.calories)
@@ -28,10 +37,10 @@ object ClaudeDigestFormatter {
         val latestMacrofactorTdee = tdee.macrofactorTdee.lastOrNull { it != null }
         lines += buildString {
             append("Calories: ")
-            append(avgCalories?.let { "avg %,.0f kcal/day".format(it) } ?: "no data")
+            append(avgCalories?.let { fmt("avg %,.0f kcal/day", it) } ?: "no data")
             if (latestCalculatedTdee != null || latestMacrofactorTdee != null) {
-                append(" (TDEE calculated: ${latestCalculatedTdee?.let { "%,.0f".format(it) } ?: "n/a"}")
-                append(" / MacroFactor: ${latestMacrofactorTdee?.let { "%,.0f".format(it) } ?: "n/a"})")
+                append(" (TDEE calculated: ${latestCalculatedTdee?.let { fmt("%,.0f", it) } ?: "n/a"}")
+                append(" / MacroFactor: ${latestMacrofactorTdee?.let { fmt("%,.0f", it) } ?: "n/a"})")
             }
         }
 
@@ -39,7 +48,8 @@ object ClaudeDigestFormatter {
         val avgFat = average(nutrition.fat)
         val avgCarbs = average(nutrition.carbs)
         if (avgProtein != null || avgFat != null || avgCarbs != null) {
-            lines += "Protein/Fat/Carbs: avg %.0fg / %.0fg / %.0fg per day".format(
+            lines += fmt(
+                "Protein/Fat/Carbs: avg %.0fg / %.0fg / %.0fg per day",
                 avgProtein ?: 0.0, avgFat ?: 0.0, avgCarbs ?: 0.0,
             )
         }
@@ -53,14 +63,14 @@ object ClaudeDigestFormatter {
         val avgRemHours = if (sleep.rem.isNotEmpty()) sleep.rem.average() / 60.0 else null
         lines += buildString {
             append("Sleep: ")
-            append(avgSleepHours?.let { "avg %.1fh/night".format(it) } ?: "no data")
+            append(avgSleepHours?.let { fmt("avg %.1fh/night", it) } ?: "no data")
             if (avgDeepHours != null && avgRemHours != null) {
-                append(" (deep %.1fh, REM %.1fh)".format(avgDeepHours, avgRemHours))
+                append(fmt(" (deep %.1fh, REM %.1fh)", avgDeepHours, avgRemHours))
             }
         }
 
         val avgRhr = average(recovery.rhr.map { it.v })
-        lines += "Recovery: " + (avgRhr?.let { "RHR avg %.0f bpm".format(it) } ?: "no recovery data")
+        lines += "Recovery: " + (avgRhr?.let { fmt("RHR avg %.0f bpm", it) } ?: "no recovery data")
 
         val latestWeek = workouts.weekly.lastOrNull()
         lines += buildString {

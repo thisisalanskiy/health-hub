@@ -556,8 +556,14 @@ def api_snapshot():
 def api_last_sync():
     conn = get_conn()
     cur = conn.cursor()
+    # LEAST, not GREATEST: this drives the app's "fill gap" backfill window, so it
+    # must be the EARLIEST of the per-table high-water-marks. biometric_timeseries
+    # gets rows on every ~15min background sync, so GREATEST would always report a
+    # just-now timestamp and mask genuinely old gaps in the other four tables.
+    # LEAST/GREATEST both ignore NULL args and return NULL only if all are NULL,
+    # so never-populated tables are skipped and an empty DB still yields NULL.
     cur.execute("""
-        SELECT GREATEST(
+        SELECT LEAST(
             (SELECT MAX(recorded_at) FROM weight_logs),
             (SELECT MAX(logged_at) FROM meal_logs),
             (SELECT MAX(start_time) FROM workouts),

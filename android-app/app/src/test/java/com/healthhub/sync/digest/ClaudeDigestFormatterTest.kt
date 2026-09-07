@@ -2,6 +2,7 @@ package com.healthhub.sync.digest
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class ClaudeDigestFormatterTest {
 
@@ -38,5 +39,32 @@ class ClaudeDigestFormatterTest {
         )
 
         assertTrue(text.isNotBlank())
+    }
+
+    @Test
+    fun `numbers stay US-formatted under a comma-decimal default locale`() {
+        val original = Locale.getDefault()
+        try {
+            // Germany formats 77.4 as "77,4" and 2350 as "2.350" — the digest is
+            // pasted into a chat, so it must not swing with the device locale.
+            Locale.setDefault(Locale.GERMANY)
+            val text = ClaudeDigestFormatter.format(
+                days = 7,
+                snapshot = SnapshotResponse(weightKg = 77.4, caloriesKcal = 2100.0, tdeeKcal = 2350.0, steps = 8200, sleepMin = 432.0),
+                weight = WeightResponse(readings = listOf(WeightPoint("2026-09-01T00:00:00Z", 77.7), WeightPoint("2026-09-07T00:00:00Z", 77.4))),
+                tdee = TdeeResponse(calculatedTdee = listOf(2340.0, 2350.0), macrofactorTdee = listOf(2300.0, 2300.0)),
+                nutrition = NutritionResponse(calories = listOf(2050.0, 2100.0), protein = listOf(140.0, 145.0), fat = listOf(65.0, 70.0), carbs = listOf(200.0, 210.0)),
+                recovery = RecoveryResponse(rhr = listOf(RecoveryPoint("2026-09-06", 58.0), RecoveryPoint("2026-09-07", 59.0))),
+                sleep = SleepResponse(deep = listOf(60.0, 66.0), rem = listOf(90.0, 96.0), core = listOf(240.0, 250.0), awake = listOf(10.0, 8.0), other = listOf(0.0, 0.0)),
+                workouts = WorkoutsResponse(weekly = listOf(WeeklyWorkout("2026-09-01", 210.0, 4))),
+            )
+
+            assertTrue(text.contains("77.4 kg"))
+            assertTrue(text.contains("trend: -0.3 kg over 7 days"))
+            assertTrue(text.contains("2,350"))
+            assertTrue(text.contains("avg 2,075 kcal/day"))
+        } finally {
+            Locale.setDefault(original)
+        }
     }
 }

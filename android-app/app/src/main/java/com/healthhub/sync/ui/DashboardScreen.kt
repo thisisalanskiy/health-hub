@@ -47,12 +47,16 @@ import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
 import com.healthhub.sync.digest.prepareForClaude
 import com.healthhub.sync.sync.SyncScheduler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 private val RANGE_OPTIONS = listOf(7, 30, 90)
+
+private const val HEALTH_CONNECT_UNAVAILABLE =
+    "Health Connect isn't available on this device. Install or update it, then reopen this screen."
 
 @Composable
 fun DashboardScreen(
@@ -63,6 +67,7 @@ fun DashboardScreen(
     val context = LocalContext.current
     var selectedDays by remember { mutableStateOf(30) }
     var rawData by remember { mutableStateOf<DashboardRawData?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var rangeMenuExpanded by remember { mutableStateOf(false) }
     var hasForegroundPermissions by remember { mutableStateOf(false) }
     var hasAllPermissions by remember { mutableStateOf(false) }
@@ -93,15 +98,50 @@ fun DashboardScreen(
     // below — combining them would re-check permissions and re-enqueue the
     // periodic work every time the user just changes the date range.
     LaunchedEffect(Unit) {
-        hasForegroundPermissions = healthConnectManager.hasForegroundPermissions()
-        hasAllPermissions = healthConnectManager.hasAllPermissions()
+        try {
+            // Guarded for the same reason as the read below: these go through
+            // HealthConnectClient.getOrCreate, which throws IllegalStateException
+            // when Health Connect isn't installed — uncaught inside a
+            // LaunchedEffect that would crash the app on first frame.
+            if (healthConnectManager.isAvailable()) {
+                hasForegroundPermissions = healthConnectManager.hasForegroundPermissions()
+                hasAllPermissions = healthConnectManager.hasAllPermissions()
+            } else {
+                loadError = HEALTH_CONNECT_UNAVAILABLE
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            loadError = "Couldn't reach Health Connect: ${e.message ?: e::class.simpleName}"
+        }
         SyncScheduler.schedulePeriodic(context)
     }
 
-    LaunchedEffect(selectedDays) {
+    // Keyed on hasForegroundPermissions as well as selectedDays: without that key
+    // a user who grants permissions from the banner above would sit on "Loading…"
+    // forever, because the read below is skipped until permissions actually exist.
+    LaunchedEffect(selectedDays, hasForegroundPermissions) {
+        if (!hasForegroundPermissions) return@LaunchedEffect
+        loadError = null
         val end = Instant.now()
         val start = end.minus(selectedDays.toLong(), ChronoUnit.DAYS)
-        rawData = healthConnectManager.readAllRecords(start, end)
+        rawData = try {
+            if (!healthConnectManager.isAvailable()) {
+                loadError = HEALTH_CONNECT_UNAVAILABLE
+                null
+            } else {
+                // readRecords throws SecurityException if a permission was revoked
+                // between the check and the read, and the client itself can throw
+                // IllegalStateException if Health Connect goes away — an uncaught
+                // throw here would take down the whole app.
+                healthConnectManager.readAllRecords(start, end)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            loadError = "Couldn't read from Health Connect: ${e.message ?: e::class.simpleName}"
+            null
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -158,8 +198,17 @@ fun DashboardScreen(
             }
 
             val data = rawData
+            val error = loadError
             if (data == null) {
-                Text("Loading from Health Connect…", modifier = Modifier.padding(top = 16.dp))
+                Text(
+                    text = when {
+                        error != null -> error
+                        !hasForegroundPermissions -> "Grant Health Connect permissions to load your dashboard."
+                        else -> "Loading from Health Connect…"
+                    },
+                    color = if (error != null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
             } else {
                 val charts: List<@Composable () -> Unit> = listOf(
                     {
