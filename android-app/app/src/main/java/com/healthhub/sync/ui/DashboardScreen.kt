@@ -240,96 +240,120 @@ fun DashboardScreen(
                     modifier = Modifier.padding(top = 16.dp),
                 )
             } else {
+                // Each entry is wrapped in its own Column with explicit spacing: a lazy grid/column
+                // item slot does not reliably stack 3+ directly-emitted sibling composables the way
+                // a Column does (observed: title + current-value texts collapsing onto each other in
+                // wide/2-column mode), and the gap also keeps each chart's top axis label clear of the
+                // title text sitting right above it.
                 val charts: List<@Composable () -> Unit> = listOf(
                     {
-                        val series = DashboardAggregator.dailyWeightTrend(data, zone)
-                        val current = series.values.lastOrNull()?.let { "%.1f kg".format(it) } ?: "no data"
-                        ChartHeader("Weight", "kg", current, trendDelta(series), "kg")
-                        LineChart(series = series)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val series = DashboardAggregator.dailyWeightTrend(data, zone)
+                            val current = series.values.lastOrNull()?.let { "%.1f kg".format(it) } ?: "no data"
+                            ChartHeader("Weight", "kg", current, trendDelta(series), "kg")
+                            LineChart(series = series)
+                        }
                     },
                     {
-                        val series = DashboardAggregator.dailySteps(data, zone)
-                        val current = series.values.lastOrNull()?.let { "${it.toInt()}" } ?: "no data"
-                        ChartHeader("Steps", "count", current, trendDelta(series), "steps/day")
-                        BarChart(series = series)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val series = DashboardAggregator.dailySteps(data, zone)
+                            val current = series.values.lastOrNull()?.let { "${it.toInt()}" } ?: "no data"
+                            ChartHeader("Steps", "count", current, trendDelta(series), "steps/day")
+                            BarChart(series = series)
+                        }
                     },
                     {
-                        val (_, avg, _) = DashboardAggregator.dailyHeartRate(data, zone)
-                        val current = avg.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
-                        ChartHeader("Heart rate (avg)", "bpm", current, trendDelta(avg), "bpm")
-                        LineChart(series = avg)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val (_, avg, _) = DashboardAggregator.dailyHeartRate(data, zone)
+                            val current = avg.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
+                            ChartHeader("Heart rate (avg)", "bpm", current, trendDelta(avg), "bpm")
+                            LineChart(series = avg)
+                        }
                     },
                     {
-                        val series = DashboardAggregator.dailyRestingHeartRate(data, zone)
-                        val current = series.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
-                        ChartHeader("Resting heart rate", "bpm", current, trendDelta(series), "bpm")
-                        LineChart(series = series)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val series = DashboardAggregator.dailyRestingHeartRate(data, zone)
+                            val current = series.values.lastOrNull()?.let { "${it.toInt()} bpm" } ?: "no data"
+                            ChartHeader("Resting heart rate", "bpm", current, trendDelta(series), "bpm")
+                            LineChart(series = series)
+                        }
                     },
                     {
-                        Text("Sleep stages (min/night)", style = MaterialTheme.typography.titleMedium)
-                        StackedBarChart(
-                            seriesByStack = DashboardAggregator.nightlySleepStages(data, zone),
-                            colors = mapOf(
-                                "deep" to Color(0xFF1A237E),
-                                "rem" to Color(0xFF4A148C),
-                                "core" to Color(0xFF1565C0),
-                                "awake" to Color(0xFFB71C1C),
-                                "other" to Color(0xFF888888),
-                            ),
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Sleep stages (min/night)", style = MaterialTheme.typography.titleMedium)
+                            StackedBarChart(
+                                seriesByStack = DashboardAggregator.nightlySleepStages(data, zone),
+                                colors = mapOf(
+                                    "deep" to Color(0xFF1A237E),
+                                    "rem" to Color(0xFF4A148C),
+                                    "core" to Color(0xFF1565C0),
+                                    "awake" to Color(0xFFB71C1C),
+                                    "other" to Color(0xFF888888),
+                                ),
+                            )
+                        }
                     },
                     {
-                        val series = DashboardAggregator.weeklyWorkoutMinutes(data, zone)
-                        val current = series.values.lastOrNull()?.let { "${it.toInt()} min this week" } ?: "no data"
-                        Text("Workouts (min/week)", style = MaterialTheme.typography.titleMedium)
-                        Text(current, style = MaterialTheme.typography.bodyMedium)
-                        BarChart(series = series)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val series = DashboardAggregator.weeklyWorkoutMinutes(data, zone)
+                            val current = series.values.lastOrNull()?.let { "${it.toInt()} min this week" } ?: "no data"
+                            Text("Workouts (min/week)", style = MaterialTheme.typography.titleMedium)
+                            Text(current, style = MaterialTheme.typography.bodyMedium)
+                            BarChart(series = series)
+                        }
                     },
                     {
-                        val (protein, fat, carbs) = DashboardAggregator.dailyNutritionMacros(data, zone)
-                        Text("Nutrition macros (g/day)", style = MaterialTheme.typography.titleMedium)
-                        StackedBarChart(
-                            seriesByStack = mapOf("protein" to protein, "fat" to fat, "carbs" to carbs),
-                            colors = mapOf(
-                                "protein" to Color(0xFF1565C0),
-                                "fat" to Color(0xFFE65100),
-                                "carbs" to Color(0xFF2E7D32),
-                            ),
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val (protein, fat, carbs) = DashboardAggregator.dailyNutritionMacros(data, zone)
+                            Text("Nutrition macros (g/day)", style = MaterialTheme.typography.titleMedium)
+                            StackedBarChart(
+                                seriesByStack = mapOf("protein" to protein, "fat" to fat, "carbs" to carbs),
+                                colors = mapOf(
+                                    "protein" to Color(0xFF1565C0),
+                                    "fat" to Color(0xFFE65100),
+                                    "carbs" to Color(0xFF2E7D32),
+                                ),
+                            )
+                        }
                     },
                     {
-                        Text("TDEE (kcal/day)", style = MaterialTheme.typography.titleMedium)
-                        val tdee = tdeeData
-                        val err = tdeeError
-                        when {
-                            tdee != null && (tdee.calculatedTdee.any { it != null } || tdee.macrofactorTdee.any { it != null }) -> {
-                                val calculated = buildTdeeSeries(tdee.dates, tdee.calculatedTdee)
-                                val macrofactor = buildTdeeSeries(tdee.dates, tdee.macrofactorTdee)
-                                val latestCalculated = tdee.calculatedTdee.lastOrNull { it != null }
-                                val latestMacrofactor = tdee.macrofactorTdee.lastOrNull { it != null }
-                                Text(
-                                    "Calculated: ${latestCalculated?.let { "%.0f".format(it) } ?: "n/a"} · MacroFactor: ${latestMacrofactor?.let { "%.0f".format(it) } ?: "n/a"}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                MultiLineChart(
-                                    seriesByLine = mapOf("calculated" to calculated, "macrofactor" to macrofactor),
-                                    colors = mapOf(
-                                        "calculated" to Color(0xFF1565C0),
-                                        "macrofactor" to Color(0xFFE65100),
-                                    ),
-                                )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("TDEE (kcal/day)", style = MaterialTheme.typography.titleMedium)
+                            val tdee = tdeeData
+                            val err = tdeeError
+                            when {
+                                tdee != null && (tdee.calculatedTdee.any { it != null } || tdee.macrofactorTdee.any { it != null }) -> {
+                                    val calculated = buildTdeeSeries(tdee.dates, tdee.calculatedTdee)
+                                    val macrofactor = buildTdeeSeries(tdee.dates, tdee.macrofactorTdee)
+                                    val latestCalculated = tdee.calculatedTdee.lastOrNull { it != null }
+                                    val latestMacrofactor = tdee.macrofactorTdee.lastOrNull { it != null }
+                                    Text(
+                                        "Calculated: ${latestCalculated?.let { "%.0f".format(it) } ?: "n/a"} · MacroFactor: ${latestMacrofactor?.let { "%.0f".format(it) } ?: "n/a"}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    MultiLineChart(
+                                        seriesByLine = mapOf("calculated" to calculated, "macrofactor" to macrofactor),
+                                        colors = mapOf(
+                                            "calculated" to Color(0xFF1565C0),
+                                            "macrofactor" to Color(0xFFE65100),
+                                        ),
+                                    )
+                                }
+                                err != null -> Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                else -> Text("Set your server URL in Settings to see TDEE.", style = MaterialTheme.typography.bodySmall)
                             }
-                            err != null -> Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            else -> Text("Set your server URL in Settings to see TDEE.", style = MaterialTheme.typography.bodySmall)
                         }
                     },
                 )
 
+                // Bottom padding is bumped to 88.dp (was 16.dp) so the last row of charts clears the
+                // FAB (56.dp button + its own 16.dp padding, plus room for the status line above it)
+                // instead of the FAB visually overlapping the final chart.
                 if (isWideScreen) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         modifier = Modifier.padding(top = 16.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp),
+                        contentPadding = PaddingValues(bottom = 88.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
@@ -338,7 +362,7 @@ fun DashboardScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.padding(top = 16.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp),
+                        contentPadding = PaddingValues(bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         items(charts.size) { index -> charts[index]() }
