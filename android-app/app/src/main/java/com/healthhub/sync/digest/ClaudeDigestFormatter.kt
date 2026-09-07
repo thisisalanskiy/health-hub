@@ -77,7 +77,14 @@ object ClaudeDigestFormatter {
         }
 
         val avgRhr = average(recovery.rhr.map { it.v })
-        lines += "Recovery: " + (avgRhr?.let { fmt("RHR avg %.0f bpm", it) } ?: "no recovery data")
+        val avgHrv = average(recovery.hrv.map { it.v })
+        lines += buildString {
+            append("Recovery: ")
+            val parts = mutableListOf<String>()
+            avgRhr?.let { parts += fmt("RHR avg %.0f bpm", it) }
+            avgHrv?.let { parts += fmt("HRV avg %.0f ms", it) }
+            append(if (parts.isEmpty()) "no recovery data" else parts.joinToString(", "))
+        }
 
         val latestVo2Max = bodyTrends.vo2Max.lastOrNull { it != null }
         val latestBodyFat = bodyTrends.bodyFatPercent.lastOrNull { it != null }

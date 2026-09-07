@@ -159,7 +159,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
-     * Reads all 7 Health Connect record types directly (not via the Changes API) over
+     * Reads all 11 Health Connect record types directly (not via the Changes API) over
      * [start, end]. Used both for the offline dashboard and for one-shot historical
      * backfill (Task 6) — Health Connect retains actual records indefinitely regardless
      * of the Changes API's ~30-day changes-log window, so this can reach arbitrarily far

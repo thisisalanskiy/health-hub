@@ -128,4 +128,48 @@ class ClaudeDigestFormatterTest {
         assertTrue(text.contains("25.7"))
         assertTrue(text.contains("1680"))
     }
+
+    @Test
+    fun `recovery line reports HRV alongside RHR when hrv data is present`() {
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(),
+            recovery = RecoveryResponse(
+                rhr = listOf(RecoveryPoint("2026-09-06", 58.0), RecoveryPoint("2026-09-07", 60.0)),
+                hrv = listOf(RecoveryPoint("2026-09-06", 48.0), RecoveryPoint("2026-09-07", 52.0)),
+            ),
+            sleep = SleepResponse(), workouts = WorkoutsResponse(), bodyTrends = BodyTrendsResponse(),
+        )
+
+        assertTrue(text.contains("RHR avg 59 bpm"))
+        assertTrue(text.contains("HRV avg 50 ms"))
+        assertFalse(text.contains("no recovery data"))
+    }
+
+    @Test
+    fun `recovery line reports HRV alone when only hrv data is present`() {
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(),
+            recovery = RecoveryResponse(hrv = listOf(RecoveryPoint("2026-09-07", 52.0))),
+            sleep = SleepResponse(), workouts = WorkoutsResponse(), bodyTrends = BodyTrendsResponse(),
+        )
+
+        assertTrue(text.contains("Recovery: HRV avg 52 ms"))
+        assertFalse(text.contains("RHR avg"))
+    }
+
+    @Test
+    fun `recovery line still says no recovery data when both series are empty`() {
+        val text = ClaudeDigestFormatter.format(
+            days = 7,
+            snapshot = SnapshotResponse(), weight = WeightResponse(), tdee = TdeeResponse(),
+            nutrition = NutritionResponse(), recovery = RecoveryResponse(), sleep = SleepResponse(),
+            workouts = WorkoutsResponse(), bodyTrends = BodyTrendsResponse(),
+        )
+
+        assertTrue(text.contains("Recovery: no recovery data"))
+    }
 }

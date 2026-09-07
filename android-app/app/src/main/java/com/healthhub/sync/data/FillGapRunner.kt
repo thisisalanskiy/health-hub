@@ -38,6 +38,10 @@ suspend fun runFillGap(baseUrl: String, apiKey: String, healthConnectManager: He
             restingHeartRates = data.restingHeartRates,
             steps = data.steps,
             sleeps = data.sleeps,
+            vo2MaxReadings = data.vo2MaxReadings,
+            hrvReadings = data.hrvReadings,
+            bodyFatReadings = data.bodyFatReadings,
+            bmrReadings = data.bmrReadings,
         ) ?: return "Nothing to backfill — already caught up."
 
         val result = IngestApiClient(baseUrl, apiKey.ifBlank { null }, backfillHttpClient).post(payload)
