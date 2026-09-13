@@ -93,6 +93,7 @@ fun LineChart(
     series: ChartSeries,
     modifier: Modifier = Modifier,
     lineColor: Color = MaterialTheme.colorScheme.primary,
+    compact: Boolean = false,
 ) {
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textPaint = rememberAxisPaint(axisColor)
@@ -101,11 +102,13 @@ fun LineChart(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(DEFAULT_HEIGHT_DP.dp)
-            .pointerInput(series) {
-                detectTapGestures { offset ->
-                    if (series.values.size >= 2) {
-                        selectedIndex = nearestIndex(offset.x, plotArea(size.toSize()), series.values.size)
+            .height((if (compact) 60 else DEFAULT_HEIGHT_DP).dp)
+            .let { base ->
+                if (compact) base else base.pointerInput(series) {
+                    detectTapGestures { offset ->
+                        if (series.values.size >= 2) {
+                            selectedIndex = nearestIndex(offset.x, plotArea(size.toSize()), series.values.size)
+                        }
                     }
                 }
             },
@@ -117,7 +120,7 @@ fun LineChart(
         val range = (maxV - minV).takeIf { it > 0f } ?: 1f
         val stepX = plot.width / (series.values.size - 1)
 
-        drawAxes(plot, minV, maxV, series.labels, axisColor, textPaint)
+        if (!compact) drawAxes(plot, minV, maxV, series.labels, axisColor, textPaint)
 
         val points = series.values.mapIndexed { index, value ->
             Offset(plot.left + index * stepX, plot.bottom - ((value - minV) / range) * plot.height)
@@ -126,14 +129,16 @@ fun LineChart(
             drawLine(color = lineColor, start = points[i], end = points[i + 1], strokeWidth = 4f)
         }
 
-        selectedIndex?.let { idx ->
-            val point = points.getOrNull(idx) ?: return@let
-            drawCircle(lineColor, radius = 6f, center = point)
-            drawLine(lineColor.copy(alpha = 0.3f), Offset(point.x, plot.top), Offset(point.x, plot.bottom), strokeWidth = 1f)
-            val label = "${series.labels.getOrNull(idx) ?: ""}: ${"%.1f".format(series.values[idx])}"
-            val textX = (point.x - 70f).coerceIn(plot.left, (plot.right - 140f).coerceAtLeast(plot.left))
-            val textY = (point.y - 14f).coerceAtLeast(16f)
-            drawContext.canvas.nativeCanvas.drawText(label, textX, textY, textPaint)
+        if (!compact) {
+            selectedIndex?.let { idx ->
+                val point = points.getOrNull(idx) ?: return@let
+                drawCircle(lineColor, radius = 6f, center = point)
+                drawLine(lineColor.copy(alpha = 0.3f), Offset(point.x, plot.top), Offset(point.x, plot.bottom), strokeWidth = 1f)
+                val label = "${series.labels.getOrNull(idx) ?: ""}: ${"%.1f".format(series.values[idx])}"
+                val textX = (point.x - 70f).coerceIn(plot.left, (plot.right - 140f).coerceAtLeast(plot.left))
+                val textY = (point.y - 14f).coerceAtLeast(16f)
+                drawContext.canvas.nativeCanvas.drawText(label, textX, textY, textPaint)
+            }
         }
     }
 }
@@ -143,6 +148,7 @@ fun BarChart(
     series: ChartSeries,
     modifier: Modifier = Modifier,
     barColor: Color = MaterialTheme.colorScheme.primary,
+    compact: Boolean = false,
 ) {
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textPaint = rememberAxisPaint(axisColor)
@@ -151,13 +157,15 @@ fun BarChart(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(DEFAULT_HEIGHT_DP.dp)
-            .pointerInput(series) {
-                detectTapGestures { offset ->
-                    if (series.values.isNotEmpty()) {
-                        val plot = plotArea(size.toSize())
-                        val barWidth = plot.width / series.values.size
-                        selectedIndex = (((offset.x - plot.left) / barWidth).toInt()).coerceIn(0, series.values.size - 1)
+            .height((if (compact) 60 else DEFAULT_HEIGHT_DP).dp)
+            .let { base ->
+                if (compact) base else base.pointerInput(series) {
+                    detectTapGestures { offset ->
+                        if (series.values.isNotEmpty()) {
+                            val plot = plotArea(size.toSize())
+                            val barWidth = plot.width / series.values.size
+                            selectedIndex = (((offset.x - plot.left) / barWidth).toInt()).coerceIn(0, series.values.size - 1)
+                        }
                     }
                 }
             },
@@ -167,7 +175,7 @@ fun BarChart(
         val maxV = series.values.max().takeIf { it > 0f } ?: 1f
         val barWidth = plot.width / series.values.size
 
-        drawAxes(plot, 0f, maxV, series.labels, axisColor, textPaint)
+        if (!compact) drawAxes(plot, 0f, maxV, series.labels, axisColor, textPaint)
 
         series.values.forEachIndexed { index, value ->
             val barHeight = (value / maxV) * plot.height
@@ -178,14 +186,16 @@ fun BarChart(
             )
         }
 
-        selectedIndex?.let { idx ->
-            val value = series.values.getOrNull(idx) ?: return@let
-            val x = plot.left + idx * barWidth + barWidth / 2f
-            val barHeight = (value / maxV) * plot.height
-            val label = "${series.labels.getOrNull(idx) ?: ""}: ${"%.0f".format(value)}"
-            val textX = (x - 70f).coerceIn(plot.left, (plot.right - 140f).coerceAtLeast(plot.left))
-            val textY = (plot.bottom - barHeight - 10f).coerceAtLeast(16f)
-            drawContext.canvas.nativeCanvas.drawText(label, textX, textY, textPaint)
+        if (!compact) {
+            selectedIndex?.let { idx ->
+                val value = series.values.getOrNull(idx) ?: return@let
+                val x = plot.left + idx * barWidth + barWidth / 2f
+                val barHeight = (value / maxV) * plot.height
+                val label = "${series.labels.getOrNull(idx) ?: ""}: ${"%.0f".format(value)}"
+                val textX = (x - 70f).coerceIn(plot.left, (plot.right - 140f).coerceAtLeast(plot.left))
+                val textY = (plot.bottom - barHeight - 10f).coerceAtLeast(16f)
+                drawContext.canvas.nativeCanvas.drawText(label, textX, textY, textPaint)
+            }
         }
     }
 }
@@ -195,6 +205,7 @@ fun StackedBarChart(
     seriesByStack: Map<String, ChartSeries>,
     colors: Map<String, Color>,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textPaint = rememberAxisPaint(axisColor)
@@ -204,13 +215,15 @@ fun StackedBarChart(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(DEFAULT_HEIGHT_DP.dp)
-            .pointerInput(seriesByStack) {
-                detectTapGestures { offset ->
-                    if (labels.isNotEmpty()) {
-                        val plot = plotArea(size.toSize())
-                        val barWidth = plot.width / labels.size
-                        selectedIndex = (((offset.x - plot.left) / barWidth).toInt()).coerceIn(0, labels.size - 1)
+            .height((if (compact) 60 else DEFAULT_HEIGHT_DP).dp)
+            .let { base ->
+                if (compact) base else base.pointerInput(seriesByStack) {
+                    detectTapGestures { offset ->
+                        if (labels.isNotEmpty()) {
+                            val plot = plotArea(size.toSize())
+                            val barWidth = plot.width / labels.size
+                            selectedIndex = (((offset.x - plot.left) / barWidth).toInt()).coerceIn(0, labels.size - 1)
+                        }
                     }
                 }
             },
@@ -223,7 +236,7 @@ fun StackedBarChart(
         val maxTotal = totalsPerDay.max().takeIf { it > 0.0 } ?: 1.0
         val barWidth = plot.width / labels.size
 
-        drawAxes(plot, 0f, maxTotal.toFloat(), labels, axisColor, textPaint)
+        if (!compact) drawAxes(plot, 0f, maxTotal.toFloat(), labels, axisColor, textPaint)
 
         labels.indices.forEach { dayIndex ->
             var yOffset = plot.bottom
@@ -239,14 +252,16 @@ fun StackedBarChart(
             }
         }
 
-        selectedIndex?.let { idx ->
-            val breakdown = seriesByStack.entries.joinToString(", ") { (name, series) ->
-                "$name ${"%.0f".format(series.values.getOrElse(idx) { 0f })}"
+        if (!compact) {
+            selectedIndex?.let { idx ->
+                val breakdown = seriesByStack.entries.joinToString(", ") { (name, series) ->
+                    "$name ${"%.0f".format(series.values.getOrElse(idx) { 0f })}"
+                }
+                val label = "${labels.getOrNull(idx) ?: ""}: $breakdown"
+                val x = plot.left + idx * barWidth + barWidth / 2f
+                val textX = (x - 90f).coerceIn(plot.left, (plot.right - 180f).coerceAtLeast(plot.left))
+                drawContext.canvas.nativeCanvas.drawText(label, textX, 20f, textPaint)
             }
-            val label = "${labels.getOrNull(idx) ?: ""}: $breakdown"
-            val x = plot.left + idx * barWidth + barWidth / 2f
-            val textX = (x - 90f).coerceIn(plot.left, (plot.right - 180f).coerceAtLeast(plot.left))
-            drawContext.canvas.nativeCanvas.drawText(label, textX, 20f, textPaint)
         }
     }
 }
@@ -256,20 +271,21 @@ fun MultiLineChart(
     seriesByLine: Map<String, ChartSeries>,
     colors: Map<String, Color>,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textPaint = rememberAxisPaint(axisColor)
     val allValues = seriesByLine.values.flatMap { it.values }
     val allLabels = seriesByLine.values.maxByOrNull { it.labels.size }?.labels ?: emptyList()
 
-    Canvas(modifier = modifier.fillMaxWidth().height(180.dp)) {
+    Canvas(modifier = modifier.fillMaxWidth().height((if (compact) 60 else 180).dp)) {
         if (allValues.isEmpty()) return@Canvas
         val plot = plotArea(size)
         val minV = allValues.min()
         val maxV = allValues.max()
         val range = (maxV - minV).takeIf { it > 0f } ?: 1f
 
-        drawAxes(plot, minV, maxV, allLabels, axisColor, textPaint)
+        if (!compact) drawAxes(plot, minV, maxV, allLabels, axisColor, textPaint)
 
         for ((name, series) in seriesByLine) {
             if (series.values.size < 2) continue
