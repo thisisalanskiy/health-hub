@@ -160,8 +160,11 @@ this initial version has no auth on the endpoint.
   than duplicating.
 - **`exerciseType` is a numeric code**, not a readable label (e.g. 79,
   81). A lookup table mapping these to names hasn't been added yet.
-- **No authentication** on `/ingest` yet. Fine for local/VPN-only use,
-  not fine for anything internet-facing.
+- **Optional shared-key authentication** on `/ingest`: by default (local dev),
+  the endpoint is open and requires no authentication. To enable authentication,
+  set the `INGEST_API_KEY` environment variable (e.g. in a `.env` file next to
+  `docker-compose.yml`) to a shared secret; when set, `POST /ingest` requires
+  that value in the `X-API-Key` request header and returns `401` otherwise.
 - **Full raw record is preserved** in the `raw` JSONB column on every
   table, so nothing is lost even though only a few fields are
   extracted into typed columns. Query `raw` directly for anything not
