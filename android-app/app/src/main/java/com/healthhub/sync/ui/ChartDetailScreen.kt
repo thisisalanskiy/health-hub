@@ -1,5 +1,8 @@
 package com.healthhub.sync.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,12 +30,15 @@ import com.healthhub.sync.data.HealthConnectManager
 import kotlinx.coroutines.CancellationException
 import java.time.ZoneId
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ChartDetailScreen(
     metric: DashboardMetric,
     healthConnectManager: HealthConnectManager,
     appPreferences: AppPreferences,
     onBack: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
 ) {
     var selectedRange by remember { mutableStateOf(RangeOption.MONTH) }
@@ -52,35 +58,47 @@ fun ChartDetailScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Row {
-            IconButton(onClick = onBack) { Text("←") }
-            Text(metric.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 8.dp))
-        }
-
-        val currentData = data
-        val currentError = error
-        when {
-            currentError != null -> Text(currentError, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 16.dp))
-            currentData == null -> Text("Loading…", modifier = Modifier.padding(top = 16.dp))
-            else -> {
-                val headline = if (metric == DashboardMetric.TDEE) {
-                    val multiLine = currentData as? MetricSeriesData.MultiLine
-                    val latest = multiLine?.seriesByLine?.get("calculated")?.values?.lastOrNull()
-                        ?: multiLine?.seriesByLine?.get("macrofactor")?.values?.lastOrNull()
-                    latest?.let { "${it.toInt()} kcal" } ?: "no data"
-                } else {
-                    previewValueText(metric, currentData, null, null)
-                }
-                Text(headline, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
-                RenderMetricChart(data = currentData, compact = false, modifier = Modifier.padding(top = 16.dp))
+    with(sharedTransitionScope) {
+        Column(
+            // Key must stay byte-identical to the one in DashboardMetricCard — a
+            // mismatch silently disables the morph with no compile error.
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .sharedBounds(
+                    rememberSharedContentState(key = "metric-${metric.id}"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                ),
+        ) {
+            Row {
+                IconButton(onClick = onBack) { Text("←") }
+                Text(metric.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 8.dp))
             }
-        }
 
-        Row(modifier = Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            RangeOption.values().forEach { option ->
-                OutlinedButton(onClick = { selectedRange = option }) {
-                    Text(option.label)
+            val currentData = data
+            val currentError = error
+            when {
+                currentError != null -> Text(currentError, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 16.dp))
+                currentData == null -> Text("Loading…", modifier = Modifier.padding(top = 16.dp))
+                else -> {
+                    val headline = if (metric == DashboardMetric.TDEE) {
+                        val multiLine = currentData as? MetricSeriesData.MultiLine
+                        val latest = multiLine?.seriesByLine?.get("calculated")?.values?.lastOrNull()
+                            ?: multiLine?.seriesByLine?.get("macrofactor")?.values?.lastOrNull()
+                        latest?.let { "${it.toInt()} kcal" } ?: "no data"
+                    } else {
+                        previewValueText(metric, currentData, null, null)
+                    }
+                    Text(headline, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
+                    RenderMetricChart(data = currentData, compact = false, modifier = Modifier.padding(top = 16.dp))
+                }
+            }
+
+            Row(modifier = Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                RangeOption.values().forEach { option ->
+                    OutlinedButton(onClick = { selectedRange = option }) {
+                        Text(option.label)
+                    }
                 }
             }
         }

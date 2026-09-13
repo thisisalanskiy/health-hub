@@ -1,6 +1,9 @@
 package com.healthhub.sync.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,12 +56,15 @@ import java.time.temporal.ChronoUnit
 private const val HEALTH_CONNECT_UNAVAILABLE =
     "Health Connect isn't available on this device. Install or update it, then reopen this screen."
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun DashboardScreen(
     healthConnectManager: HealthConnectManager,
     appPreferences: AppPreferences,
     isWideScreen: Boolean,
     onMetricClick: (DashboardMetric) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val context = LocalContext.current
     var rawData by remember { mutableStateOf<DashboardRawData?>(null) }
@@ -229,7 +235,12 @@ fun DashboardScreen(
                     ) {
                         items(metrics.size) { index ->
                             val metric = metrics[index]
-                            DashboardMetricCard(metric, data, tdeeData, tdeeError, zone, onClick = { onMetricClick(metric) })
+                            DashboardMetricCard(
+                                metric, data, tdeeData, tdeeError, zone,
+                                onClick = { onMetricClick(metric) },
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
+                            )
                         }
                     }
                 } else {
@@ -240,7 +251,12 @@ fun DashboardScreen(
                     ) {
                         items(metrics.size) { index ->
                             val metric = metrics[index]
-                            DashboardMetricCard(metric, data, tdeeData, tdeeError, zone, onClick = { onMetricClick(metric) })
+                            DashboardMetricCard(
+                                metric, data, tdeeData, tdeeError, zone,
+                                onClick = { onMetricClick(metric) },
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
+                            )
                         }
                     }
                 }

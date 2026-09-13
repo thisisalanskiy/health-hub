@@ -1,3 +1,9 @@
 <resources>
     <style name="Theme.HealthHubSync" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <style name="Theme.HealthHubSync.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.HealthHubSync</item>
+    </style>
 </resources>

@@ -1,5 +1,8 @@
 package com.healthhub.sync.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +20,7 @@ import com.healthhub.sync.dashboard.previewValueText
 import com.healthhub.sync.digest.TdeeResponse
 import java.time.ZoneId
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun DashboardMetricCard(
     metric: DashboardMetric,
@@ -25,20 +29,34 @@ fun DashboardMetricCard(
     tdeeError: String?,
     zone: ZoneId,
     onClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
 ) {
     val data = previewSeriesData(metric, rawData, zone)
     val currentValue = previewValueText(metric, data, tdeeData, tdeeError)
 
-    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    with(sharedTransitionScope) {
+        Card(
+            onClick = onClick,
+            // Key must stay byte-identical to the one in ChartDetailScreen — a
+            // mismatch silently disables the morph with no compile error.
+            modifier = modifier
+                .fillMaxWidth()
+                .sharedBounds(
+                    rememberSharedContentState(key = "metric-${metric.id}"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                ),
         ) {
-            Text(metric.title, style = MaterialTheme.typography.titleMedium)
-            Text("Last 7 days", style = MaterialTheme.typography.bodySmall)
-            data?.let { RenderMetricChart(data = it, compact = true) }
-            Text(currentValue, style = MaterialTheme.typography.headlineSmall)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(metric.title, style = MaterialTheme.typography.titleMedium)
+                Text("Last 7 days", style = MaterialTheme.typography.bodySmall)
+                data?.let { RenderMetricChart(data = it, compact = true) }
+                Text(currentValue, style = MaterialTheme.typography.headlineSmall)
+            }
         }
     }
 }

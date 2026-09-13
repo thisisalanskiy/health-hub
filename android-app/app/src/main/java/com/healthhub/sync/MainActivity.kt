@@ -6,6 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -25,15 +31,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.healthhub.sync.dashboard.DashboardMetric
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
+import com.healthhub.sync.ui.ChartDetailScreen
 import com.healthhub.sync.ui.DashboardScreen
 import com.healthhub.sync.ui.SettingsScreen
 import com.healthhub.sync.ui.theme.HealthHubSyncTheme
@@ -51,6 +62,7 @@ private val CONTENT_MAX_WIDTH = 640.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         // Dark-only app: force light (white) status/nav bar icons regardless of the
@@ -137,6 +149,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun NavHostContent(
     navController: NavHostController,
@@ -146,16 +159,61 @@ private fun NavHostContent(
     modifier: Modifier = Modifier,
 ) {
     Box(contentAlignment = Alignment.TopCenter, modifier = modifier) {
-        NavHost(
-            navController = navController,
-            startDestination = Destination.DASHBOARD.route,
-            modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
-        ) {
-            composable(Destination.DASHBOARD.route) {
-                DashboardScreen(healthConnectManager, appPreferences, isWideScreen)
-            }
-            composable(Destination.SETTINGS.route) {
-                SettingsScreen(appPreferences, healthConnectManager)
+        SharedTransitionLayout {
+            NavHost(
+                navController = navController,
+                startDestination = Destination.DASHBOARD.route,
+                modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
+            ) {
+                // Dashboard and chart_detail suppress NavHost's default per-destination
+                // horizontal slide: it would play at the same time as (and visually fight)
+                // the sharedBounds morph between the tapped card and the detail chart.
+                composable(
+                    route = Destination.DASHBOARD.route,
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None },
+                ) {
+                    DashboardScreen(
+                        healthConnectManager = healthConnectManager,
+                        appPreferences = appPreferences,
+                        isWideScreen = isWideScreen,
+                        onMetricClick = { metric -> navController.navigate("chart_detail/${metric.id}") },
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = this,
+                    )
+                }
+                composable(
+                    route = "chart_detail/{metricId}",
+                    arguments = listOf(navArgument("metricId") { type = NavType.StringType }),
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None },
+                ) { backStackEntry ->
+                    val metricId = backStackEntry.arguments?.getString("metricId")
+                    val metric = DashboardMetric.values().firstOrNull { it.id == metricId }
+                    if (metric != null) {
+                        ChartDetailScreen(
+                            metric = metric,
+                            healthConnectManager = healthConnectManager,
+                            appPreferences = appPreferences,
+                            onBack = { navController.popBackStack() },
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            animatedVisibilityScope = this,
+                        )
+                    }
+                }
+                // Settings has no shared element, so it keeps a real transition — a
+                // plain crossfade.
+                composable(
+                    Destination.SETTINGS.route,
+                    enterTransition = { fadeIn() },
+                    exitTransition = { fadeOut() },
+                ) {
+                    SettingsScreen(appPreferences, healthConnectManager)
+                }
             }
         }
     }
