@@ -22,7 +22,6 @@ object ClaudeDigestFormatter {
         recovery: RecoveryResponse,
         sleep: SleepResponse,
         workouts: WorkoutsResponse,
-        bodyTrends: BodyTrendsResponse,
     ): String {
         val lines = mutableListOf<String>()
         val today = LocalDate.now()
@@ -84,20 +83,6 @@ object ClaudeDigestFormatter {
             avgRhr?.let { parts += fmt("RHR avg %.0f bpm", it) }
             avgHrv?.let { parts += fmt("HRV avg %.0f ms", it) }
             append(if (parts.isEmpty()) "no recovery data" else parts.joinToString(", "))
-        }
-
-        val latestVo2Max = bodyTrends.vo2Max.lastOrNull { it != null }
-        val latestBodyFat = bodyTrends.bodyFatPercent.lastOrNull { it != null }
-        val latestBmr = bodyTrends.bmrKcal.lastOrNull { it != null }
-        if (latestVo2Max != null || latestBodyFat != null || latestBmr != null) {
-            lines += buildString {
-                append("Body trends: ")
-                val parts = mutableListOf<String>()
-                latestVo2Max?.let { parts += fmt("VO2 max %.1f mL/kg/min", it) }
-                latestBodyFat?.let { parts += fmt("body fat %.1f%%", it * 100.0) }
-                latestBmr?.let { parts += fmt("BMR %.0f kcal/day", it) }
-                append(parts.joinToString(", "))
-            }
         }
 
         val totalSessions = workouts.weekly.sumOf { it.sessions }

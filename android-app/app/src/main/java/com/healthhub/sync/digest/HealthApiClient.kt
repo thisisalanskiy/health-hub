@@ -30,5 +30,4 @@ class HealthApiClient(
     suspend fun getRecovery(days: Int): RecoveryResponse = json.decodeFromString(fetchBody("/api/recovery?days=$days"))
     suspend fun getSleep(days: Int): SleepResponse = json.decodeFromString(fetchBody("/api/sleep?days=$days"))
     suspend fun getWorkouts(days: Int): WorkoutsResponse = json.decodeFromString(fetchBody("/api/workouts?days=$days"))
-    suspend fun getBodyTrends(days: Int): BodyTrendsResponse = json.decodeFromString(fetchBody("/api/body-trends?days=$days"))
 }

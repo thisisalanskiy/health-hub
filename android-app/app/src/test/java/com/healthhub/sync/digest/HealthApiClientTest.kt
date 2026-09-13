@@ -57,23 +57,6 @@ class HealthApiClientTest {
     }
 
     @Test
-    fun `getBodyTrends parses the response`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody(
-            """{"dates":["2026-01-01","2026-01-02"],"vo2_max":[42.5,null],"body_fat_percent":[0.257,null],"bmr_kcal":[1680.0,null]}"""
-        ))
-        val client = HealthApiClient(baseUrl = server.url("/").toString().trimEnd('/'))
-
-        val result = client.getBodyTrends(7)
-
-        assertEquals(listOf("2026-01-01", "2026-01-02"), result.dates)
-        assertEquals(listOf(42.5, null), result.vo2Max)
-        assertEquals(listOf(0.257, null), result.bodyFatPercent)
-        assertEquals(listOf(1680.0, null), result.bmrKcal)
-        val request = server.takeRequest()
-        assertEquals("/api/body-trends?days=7", request.path)
-    }
-
-    @Test
     fun `throws on a non-2xx response`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
         val client = HealthApiClient(baseUrl = server.url("/").toString().trimEnd('/'))

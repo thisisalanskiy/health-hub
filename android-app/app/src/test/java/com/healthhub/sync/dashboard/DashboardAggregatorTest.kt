@@ -1,20 +1,14 @@
 package com.healthhub.sync.dashboard
 
-import androidx.health.connect.client.records.BasalMetabolicRateRecord
-import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
-import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
-import androidx.health.connect.client.units.Percentage
-import androidx.health.connect.client.units.Power
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant
@@ -149,69 +143,5 @@ class DashboardAggregatorTest {
 
         assertEquals(listOf("2026-09-01"), series.labels)
         assertEquals(60f, series.values[0], 0.1f)
-    }
-
-    @Test
-    fun `daily vo2 max averages same-day readings`() {
-        val day1a = Instant.parse("2026-01-01T08:00:00Z")
-        val day1b = Instant.parse("2026-01-01T20:00:00Z")
-        val day2 = Instant.parse("2026-01-02T08:00:00Z")
-        val data = DashboardRawData(
-            vo2MaxReadings = listOf(
-                Vo2MaxRecord(day1a, null, meta("v1"), 40.0, Vo2MaxRecord.MEASUREMENT_METHOD_OTHER),
-                Vo2MaxRecord(day1b, null, meta("v2"), 42.0, Vo2MaxRecord.MEASUREMENT_METHOD_OTHER),
-                Vo2MaxRecord(day2, null, meta("v3"), 44.0, Vo2MaxRecord.MEASUREMENT_METHOD_OTHER),
-            ),
-        )
-
-        val series = DashboardAggregator.dailyVo2Max(data, zone)
-
-        assertEquals(listOf("2026-01-01", "2026-01-02"), series.labels)
-        assertEquals(listOf(41.0f, 44.0f), series.values)
-    }
-
-    @Test
-    fun `daily hrv averages same-day readings`() {
-        val day1 = Instant.parse("2026-01-01T08:00:00Z")
-        val data = DashboardRawData(
-            hrvReadings = listOf(
-                HeartRateVariabilityRmssdRecord(day1, null, 50.0, meta("h1")),
-            ),
-        )
-
-        val series = DashboardAggregator.dailyHrv(data, zone)
-
-        assertEquals(listOf("2026-01-01"), series.labels)
-        assertEquals(listOf(50.0f), series.values)
-    }
-
-    @Test
-    fun `daily body fat reports the human-readable 0-100 percentage`() {
-        val day1 = Instant.parse("2026-01-01T08:00:00Z")
-        val data = DashboardRawData(
-            bodyFatReadings = listOf(
-                BodyFatRecord(day1, null, Percentage(25.7), meta("b1")),
-            ),
-        )
-
-        val series = DashboardAggregator.dailyBodyFat(data, zone)
-
-        assertEquals(listOf("2026-01-01"), series.labels)
-        assertEquals(25.7f, series.values.single(), 0.01f)
-    }
-
-    @Test
-    fun `daily bmr converts to kcal per day`() {
-        val day1 = Instant.parse("2026-01-01T08:00:00Z")
-        val data = DashboardRawData(
-            bmrReadings = listOf(
-                BasalMetabolicRateRecord(day1, null, Power.kilocaloriesPerDay(1680.0), meta("m1")),
-            ),
-        )
-
-        val series = DashboardAggregator.dailyBmr(data, zone)
-
-        assertEquals(listOf("2026-01-01"), series.labels)
-        assertEquals(1680.0f, series.values.single())
     }
 }

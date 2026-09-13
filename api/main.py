@@ -81,10 +81,7 @@ def health():
     return {"status": "ok"}
 
 
-_ALL_TYPES = (
-    "weight", "nutrition", "exercise", "heartRate", "restingHeartRate", "steps", "sleep",
-    "vo2Max", "heartRateVariability", "bodyFat", "bmr",
-)
+_ALL_TYPES = ("weight", "nutrition", "exercise", "heartRate", "restingHeartRate", "steps", "sleep")
 
 
 def _detect_type(r: dict) -> str:
@@ -100,14 +97,6 @@ def _detect_type(r: dict) -> str:
         return "steps"
     if "stages" in r:
         return "sleep"
-    if "vo2MillilitersPerMinuteKilogram" in r:
-        return "vo2Max"
-    if "heartRateVariabilityMillis" in r:
-        return "heartRateVariability"
-    if "percentage" in r:
-        return "bodyFat"
-    if "kilocaloriesPerDay" in r:
-        return "bmr"
     return "nutrition"
 
 
@@ -132,8 +121,7 @@ async def ingest(request: Request):
     conn = get_conn()
     cur = conn.cursor()
     counts = {"weight": 0, "nutrition": 0, "exercise": 0,
-              "heartRate": 0, "restingHeartRate": 0, "steps": 0, "sleep": 0,
-              "vo2Max": 0, "heartRateVariability": 0, "bodyFat": 0, "bmr": 0, "skipped": 0}
+              "heartRate": 0, "restingHeartRate": 0, "steps": 0, "sleep": 0, "skipped": 0}
 
     # --- Weight → weight_logs ---
     for r in buckets["weight"]:
@@ -282,93 +270,6 @@ async def ingest(request: Request):
             counts["steps"] += 1
         except Exception as e:
             print(f"Skipping steps ({e})")
-            counts["skipped"] += 1
-
-    # --- VO2 Max → biometric_timeseries ---
-    for r in buckets["vo2Max"]:
-        try:
-            pkg_raw = r["metadata"]["dataOrigin"]["packageName"]
-            t = ms_to_dt(r["time"])
-            cur.execute(
-                """
-                INSERT INTO biometric_timeseries
-                    (id, type, source_name, unit, start_time, end_time, value, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (r["metadata"]["id"], "HKQuantityTypeIdentifierVO2Max",
-                 pkg_raw, "mL/min·kg", t, t, r["vo2MillilitersPerMinuteKilogram"], normalise_source(pkg_raw)),
-            )
-            counts["vo2Max"] += 1
-        except Exception as e:
-            print(f"Skipping VO2 max ({e})")
-            counts["skipped"] += 1
-
-    # --- Heart rate variability (RMSSD) → biometric_timeseries ---
-    # Merged into the same type bucket as the historical Apple-Health SDNN series --
-    # an explicit, accepted user decision. SDNN and RMSSD are different calculations,
-    # so this series may show a visible shift in typical values at the point the
-    # data source switches from Apple Health/WHOOP to Health Connect/Garmin.
-    for r in buckets["heartRateVariability"]:
-        try:
-            pkg_raw = r["metadata"]["dataOrigin"]["packageName"]
-            t = ms_to_dt(r["time"])
-            cur.execute(
-                """
-                INSERT INTO biometric_timeseries
-                    (id, type, source_name, unit, start_time, end_time, value, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (r["metadata"]["id"], "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
-                 pkg_raw, "ms", t, t, r["heartRateVariabilityMillis"], normalise_source(pkg_raw)),
-            )
-            counts["heartRateVariability"] += 1
-        except Exception as e:
-            print(f"Skipping HRV ({e})")
-            counts["skipped"] += 1
-
-    # --- Body fat % → biometric_timeseries ---
-    # `percentage` here is already a 0-1 fraction (the Android client converts from
-    # Health Connect's 0-100 scale before sending) to match the existing historical
-    # rows' convention -- do not re-scale it here.
-    for r in buckets["bodyFat"]:
-        try:
-            pkg_raw = r["metadata"]["dataOrigin"]["packageName"]
-            t = ms_to_dt(r["time"])
-            cur.execute(
-                """
-                INSERT INTO biometric_timeseries
-                    (id, type, source_name, unit, start_time, end_time, value, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (r["metadata"]["id"], "HKQuantityTypeIdentifierBodyFatPercentage",
-                 pkg_raw, "%", t, t, r["percentage"], normalise_source(pkg_raw)),
-            )
-            counts["bodyFat"] += 1
-        except Exception as e:
-            print(f"Skipping body fat ({e})")
-            counts["skipped"] += 1
-
-    # --- BMR → biometric_timeseries ---
-    for r in buckets["bmr"]:
-        try:
-            pkg_raw = r["metadata"]["dataOrigin"]["packageName"]
-            t = ms_to_dt(r["time"])
-            cur.execute(
-                """
-                INSERT INTO biometric_timeseries
-                    (id, type, source_name, unit, start_time, end_time, value, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (r["metadata"]["id"], "HKQuantityTypeIdentifierBasalMetabolicRate",
-                 pkg_raw, "kcal/day", t, t, r["kilocaloriesPerDay"], normalise_source(pkg_raw)),
-            )
-            counts["bmr"] += 1
-        except Exception as e:
-            print(f"Skipping BMR ({e})")
             counts["skipped"] += 1
 
     # --- SleepSession stages → sleep_records ---
@@ -977,38 +878,6 @@ def api_tdee(days: int = 30):
         "calories":         [daily_intake.get(d) for d in target_dates],
         "calculated_tdee":  [calculated[d] for d in target_dates],
         "macrofactor_tdee": [macrofactor_by_date.get(d) for d in target_dates],
-    })
-
-
-@app.get("/api/body-trends")
-def api_body_trends(days: int = 30):
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT date_trunc('day', start_time)::date AS day, type, AVG(value)::float
-        FROM biometric_timeseries
-        WHERE type IN (
-            'HKQuantityTypeIdentifierVO2Max',
-            'HKQuantityTypeIdentifierBodyFatPercentage',
-            'HKQuantityTypeIdentifierBasalMetabolicRate'
-        )
-        AND start_time >= NOW() - INTERVAL '1 day' * %s
-        GROUP BY 1, 2
-    """, (days,))
-
-    by_day: dict = {}
-    for day, typ, val in cur.fetchall():
-        by_day.setdefault(jsonable(day), {})[typ] = val
-    cur.close()
-    conn.close()
-
-    target_dates = [jsonable(date.today() - timedelta(days=i)) for i in range(days)][::-1]
-    return JSONResponse({
-        "dates": target_dates,
-        "vo2_max": [by_day.get(d, {}).get("HKQuantityTypeIdentifierVO2Max") for d in target_dates],
-        "body_fat_percent": [by_day.get(d, {}).get("HKQuantityTypeIdentifierBodyFatPercentage") for d in target_dates],
-        "bmr_kcal": [by_day.get(d, {}).get("HKQuantityTypeIdentifierBasalMetabolicRate") for d in target_dates],
     })
 
 

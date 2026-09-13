@@ -23,7 +23,6 @@ suspend fun prepareForClaude(appPreferences: AppPreferences, context: Context): 
             recovery = client.getRecovery(DIGEST_DAYS),
             sleep = client.getSleep(DIGEST_DAYS),
             workouts = client.getWorkouts(DIGEST_DAYS),
-            bodyTrends = client.getBodyTrends(DIGEST_DAYS),
         )
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Health digest", text))

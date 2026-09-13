@@ -100,41 +100,6 @@ object DashboardAggregator {
         return ChartSeries(byDay.keys.toList(), byDay.values.toList())
     }
 
-    fun dailyVo2Max(data: DashboardRawData, zone: ZoneId): ChartSeries {
-        val byDay = data.vo2MaxReadings
-            .groupBy { it.time.toDayString(zone) }
-            .toSortedMap()
-            .mapValues { (_, records) -> records.map { it.vo2MillilitersPerMinuteKilogram }.average().toFloat() }
-        return ChartSeries(byDay.keys.toList(), byDay.values.toList())
-    }
-
-    fun dailyHrv(data: DashboardRawData, zone: ZoneId): ChartSeries {
-        val byDay = data.hrvReadings
-            .groupBy { it.time.toDayString(zone) }
-            .toSortedMap()
-            .mapValues { (_, records) -> records.map { it.heartRateVariabilityMillis }.average().toFloat() }
-        return ChartSeries(byDay.keys.toList(), byDay.values.toList())
-    }
-
-    /** Values come back as a human-readable 0-100 percentage (e.g. 25.7), not the
-     * 0-1 fraction Health Connect's own Percentage type uses -- this is for on-screen
-     * display, distinct from the 0-1 fraction stored server-side (see SyncPayloadMapper.kt). */
-    fun dailyBodyFat(data: DashboardRawData, zone: ZoneId): ChartSeries {
-        val byDay = data.bodyFatReadings
-            .groupBy { it.time.toDayString(zone) }
-            .toSortedMap()
-            .mapValues { (_, records) -> records.map { it.percentage.value }.average().toFloat() }
-        return ChartSeries(byDay.keys.toList(), byDay.values.toList())
-    }
-
-    fun dailyBmr(data: DashboardRawData, zone: ZoneId): ChartSeries {
-        val byDay = data.bmrReadings
-            .groupBy { it.time.toDayString(zone) }
-            .toSortedMap()
-            .mapValues { (_, records) -> records.map { it.basalMetabolicRate.inKilocaloriesPerDay }.average().toFloat() }
-        return ChartSeries(byDay.keys.toList(), byDay.values.toList())
-    }
-
     /** ISO-8601 week label (e.g. "2026-W37") so sessions in the same week group together. */
     private fun weekLabel(instant: Instant, zone: ZoneId): String {
         val date = instant.atZone(zone).toLocalDate()

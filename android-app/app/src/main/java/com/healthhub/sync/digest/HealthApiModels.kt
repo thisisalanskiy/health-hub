@@ -62,11 +62,3 @@ data class WeeklyWorkout(val week: String, @SerialName("total_min") val totalMin
 
 @Serializable
 data class WorkoutsResponse(val weekly: List<WeeklyWorkout> = emptyList())
-
-@Serializable
-data class BodyTrendsResponse(
-    val dates: List<String> = emptyList(),
-    @SerialName("vo2_max") val vo2Max: List<Double?> = emptyList(),
-    @SerialName("body_fat_percent") val bodyFatPercent: List<Double?> = emptyList(),
-    @SerialName("bmr_kcal") val bmrKcal: List<Double?> = emptyList(),
-)

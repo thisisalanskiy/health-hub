@@ -152,36 +152,4 @@ fun buildDashboardCharts(
             }
         }
     },
-    {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            val series = DashboardAggregator.dailyVo2Max(data, zone)
-            val current = series.values.lastOrNull()?.let { "%.1f mL/kg/min".format(it) } ?: "no data"
-            ChartHeader("VO2 max", "mL/kg/min", current, trendDelta(series), "mL/kg/min")
-            LineChart(series = series)
-        }
-    },
-    {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            val series = DashboardAggregator.dailyHrv(data, zone)
-            val current = series.values.lastOrNull()?.let { "%.0f ms".format(it) } ?: "no data"
-            ChartHeader("HRV", "ms", current, trendDelta(series), "ms")
-            LineChart(series = series)
-        }
-    },
-    {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            val series = DashboardAggregator.dailyBodyFat(data, zone)
-            val current = series.values.lastOrNull()?.let { "%.1f%%".format(it) } ?: "no data"
-            ChartHeader("Body fat", "%", current, trendDelta(series), "%")
-            LineChart(series = series)
-        }
-    },
-    {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            val series = DashboardAggregator.dailyBmr(data, zone)
-            val current = series.values.lastOrNull()?.let { "%.0f kcal/day".format(it) } ?: "no data"
-            ChartHeader("BMR", "kcal/day", current, trendDelta(series), "kcal/day")
-            LineChart(series = series)
-        }
-    },
 )

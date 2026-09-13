@@ -4,16 +4,12 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.BasalMetabolicRateRecord
-import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -30,10 +26,6 @@ private val RECORD_TYPES: List<KClass<out androidx.health.connect.client.records
     RestingHeartRateRecord::class,
     StepsRecord::class,
     SleepSessionRecord::class,
-    Vo2MaxRecord::class,
-    HeartRateVariabilityRmssdRecord::class,
-    BodyFatRecord::class,
-    BasalMetabolicRateRecord::class,
 )
 
 private val RECORD_TYPES_BY_KEY: Map<String, KClass<out androidx.health.connect.client.records.Record>> =
@@ -107,10 +99,6 @@ class HealthConnectManager(private val context: Context) {
         val restingHeartRates = mutableListOf<RestingHeartRateRecord>()
         val steps = mutableListOf<StepsRecord>()
         val sleeps = mutableListOf<SleepSessionRecord>()
-        val vo2MaxReadings = mutableListOf<Vo2MaxRecord>()
-        val hrvReadings = mutableListOf<HeartRateVariabilityRmssdRecord>()
-        val bodyFatReadings = mutableListOf<BodyFatRecord>()
-        val bmrReadings = mutableListOf<BasalMetabolicRateRecord>()
         val newTokens = mutableMapOf<String, String>()
         var anyTokenExpired = false
 
@@ -128,10 +116,6 @@ class HealthConnectManager(private val context: Context) {
                         is RestingHeartRateRecord -> restingHeartRates += record
                         is StepsRecord -> steps += record
                         is SleepSessionRecord -> sleeps += record
-                        is Vo2MaxRecord -> vo2MaxReadings += record
-                        is HeartRateVariabilityRmssdRecord -> hrvReadings += record
-                        is BodyFatRecord -> bodyFatReadings += record
-                        is BasalMetabolicRateRecord -> bmrReadings += record
                     }
                 }
                 if (response.changesTokenExpired) {
@@ -153,13 +137,12 @@ class HealthConnectManager(private val context: Context) {
 
         val payload = buildIngestPayload(
             weights, nutrition, exercises, heartRates, restingHeartRates, steps, sleeps,
-            vo2MaxReadings, hrvReadings, bodyFatReadings, bmrReadings,
         )
         return FetchChangesResult(payload, newTokens, anyTokenExpired)
     }
 
     /**
-     * Reads all 11 Health Connect record types directly (not via the Changes API) over
+     * Reads all 7 Health Connect record types directly (not via the Changes API) over
      * [start, end]. Used both for the offline dashboard and for one-shot historical
      * backfill (Task 6) — Health Connect retains actual records indefinitely regardless
      * of the Changes API's ~30-day changes-log window, so this can reach arbitrarily far
@@ -175,10 +158,6 @@ class HealthConnectManager(private val context: Context) {
             restingHeartRates = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range)).records,
             steps = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records,
             sleeps = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records,
-            vo2MaxReadings = client.readRecords(ReadRecordsRequest(Vo2MaxRecord::class, range)).records,
-            hrvReadings = client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, range)).records,
-            bodyFatReadings = client.readRecords(ReadRecordsRequest(BodyFatRecord::class, range)).records,
-            bmrReadings = client.readRecords(ReadRecordsRequest(BasalMetabolicRateRecord::class, range)).records,
         )
     }
 
