@@ -1,3 +1,5 @@
+name: health-hub
+
 services:
   api:
     build: ./api
