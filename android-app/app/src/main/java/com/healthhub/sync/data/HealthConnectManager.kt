@@ -11,6 +11,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -160,5 +161,13 @@ class HealthConnectManager(private val context: Context) {
             sleeps = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records,
         )
     }
+
+    /**
+     * Reads a single Health Connect record type over [start, end] — used by the chart
+     * detail screen (Task 9), which needs an independent range per metric rather than
+     * the dashboard's shared 7-day fetch of all 7 types in [readAllRecords].
+     */
+    suspend fun <T : Record> readRecordsInRange(type: KClass<T>, start: Instant, end: Instant): List<T> =
+        client.readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end))).records
 
 }
