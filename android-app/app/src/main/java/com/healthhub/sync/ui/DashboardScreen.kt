@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -20,8 +18,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -40,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
+import com.healthhub.sync.dashboard.DashboardMetric
 import com.healthhub.sync.dashboard.DashboardRawData
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
@@ -53,8 +50,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-private val RANGE_OPTIONS = listOf(7, 30, 90)
-
 private const val HEALTH_CONNECT_UNAVAILABLE =
     "Health Connect isn't available on this device. Install or update it, then reopen this screen."
 
@@ -63,12 +58,11 @@ fun DashboardScreen(
     healthConnectManager: HealthConnectManager,
     appPreferences: AppPreferences,
     isWideScreen: Boolean,
+    onMetricClick: (DashboardMetric) -> Unit,
 ) {
     val context = LocalContext.current
-    var selectedDays by remember { mutableStateOf(30) }
     var rawData by remember { mutableStateOf<DashboardRawData?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
-    var rangeMenuExpanded by remember { mutableStateOf(false) }
     var hasForegroundPermissions by remember { mutableStateOf(false) }
     var hasAllPermissions by remember { mutableStateOf(false) }
     var digestStatus by remember { mutableStateOf<String?>(null) }
@@ -119,14 +113,14 @@ fun DashboardScreen(
         SyncScheduler.schedulePeriodic(context)
     }
 
-    // Keyed on hasForegroundPermissions as well as selectedDays: without that key
-    // a user who grants permissions from the banner above would sit on "Loading…"
-    // forever, because the read below is skipped until permissions actually exist.
-    LaunchedEffect(selectedDays, hasForegroundPermissions) {
+    // Keyed on hasForegroundPermissions: without that key a user who grants
+    // permissions from the banner above would sit on "Loading…" forever,
+    // because the read below is skipped until permissions actually exist.
+    LaunchedEffect(hasForegroundPermissions) {
         if (!hasForegroundPermissions) return@LaunchedEffect
         loadError = null
         val end = Instant.now()
-        val start = end.minus(selectedDays.toLong(), ChronoUnit.DAYS)
+        val start = end.minus(7, ChronoUnit.DAYS)
         rawData = try {
             if (!healthConnectManager.isAvailable()) {
                 loadError = HEALTH_CONNECT_UNAVAILABLE
@@ -148,8 +142,8 @@ fun DashboardScreen(
 
     // Separate from the Health-Connect-gated effect above: TDEE comes from the
     // server over Tailscale, not Health Connect, so it depends only on the
-    // selected date range and the configured server URL — not on permissions.
-    LaunchedEffect(selectedDays) {
+    // configured server URL — not on permissions.
+    LaunchedEffect(Unit) {
         tdeeError = null
         tdeeData = try {
             // getBaseUrl() reads Preferences DataStore and can throw IOException
@@ -161,7 +155,7 @@ fun DashboardScreen(
                 // No server configured yet: a quiet fallback state, not an error.
                 null
             } else {
-                HealthApiClient(baseUrl).getTdee(selectedDays)
+                HealthApiClient(baseUrl).getTdee(7)
             }
         } catch (e: CancellationException) {
             throw e
@@ -185,23 +179,6 @@ fun DashboardScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = { SyncScheduler.syncNow(context) }) {
                         Text("Sync Now")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Box {
-                        OutlinedButton(onClick = { rangeMenuExpanded = true }) {
-                            Text("${selectedDays}d ▾")
-                        }
-                        DropdownMenu(expanded = rangeMenuExpanded, onDismissRequest = { rangeMenuExpanded = false }) {
-                            RANGE_OPTIONS.forEach { days ->
-                                DropdownMenuItem(
-                                    text = { Text("${days}d") },
-                                    onClick = {
-                                        selectedDays = days
-                                        rangeMenuExpanded = false
-                                    },
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -237,16 +214,11 @@ fun DashboardScreen(
                     modifier = Modifier.padding(top = 16.dp),
                 )
             } else {
-                // Each entry is wrapped in its own Column with explicit spacing: a lazy grid/column
-                // item slot does not reliably stack 3+ directly-emitted sibling composables the way
-                // a Column does (observed: title + current-value texts collapsing onto each other in
-                // wide/2-column mode), and the gap also keeps each chart's top axis label clear of the
-                // title text sitting right above it.
-                val charts = buildDashboardCharts(data, tdeeData, tdeeError, zone)
+                val metrics = DashboardMetric.values()
 
-                // Bottom padding is bumped to 88.dp (was 16.dp) so the last row of charts clears the
+                // Bottom padding is bumped to 88.dp (was 16.dp) so the last row of cards clears the
                 // FAB (56.dp button + its own 16.dp padding, plus room for the status line above it)
-                // instead of the FAB visually overlapping the final chart.
+                // instead of the FAB visually overlapping the final card.
                 if (isWideScreen) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -255,7 +227,10 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        items(charts.size) { index -> charts[index]() }
+                        items(metrics.size) { index ->
+                            val metric = metrics[index]
+                            DashboardMetricCard(metric, data, tdeeData, tdeeError, zone, onClick = { onMetricClick(metric) })
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -263,7 +238,10 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        items(charts.size) { index -> charts[index]() }
+                        items(metrics.size) { index ->
+                            val metric = metrics[index]
+                            DashboardMetricCard(metric, data, tdeeData, tdeeError, zone, onClick = { onMetricClick(metric) })
+                        }
                     }
                 }
             }
