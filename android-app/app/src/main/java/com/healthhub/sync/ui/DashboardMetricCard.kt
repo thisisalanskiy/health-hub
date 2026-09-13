@@ -1,0 +1,44 @@
+package com.healthhub.sync.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.healthhub.sync.dashboard.DashboardMetric
+import com.healthhub.sync.dashboard.DashboardRawData
+import com.healthhub.sync.dashboard.previewSeriesData
+import com.healthhub.sync.dashboard.previewValueText
+import com.healthhub.sync.digest.TdeeResponse
+import java.time.ZoneId
+
+@Composable
+fun DashboardMetricCard(
+    metric: DashboardMetric,
+    rawData: DashboardRawData,
+    tdeeData: TdeeResponse?,
+    tdeeError: String?,
+    zone: ZoneId,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val data = previewSeriesData(metric, rawData, zone)
+    val currentValue = previewValueText(metric, data, tdeeData, tdeeError)
+
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(metric.title, style = MaterialTheme.typography.titleMedium)
+            Text("Last 7 days", style = MaterialTheme.typography.bodySmall)
+            data?.let { RenderMetricChart(data = it, compact = true) }
+            Text(currentValue, style = MaterialTheme.typography.headlineSmall)
+        }
+    }
+}
