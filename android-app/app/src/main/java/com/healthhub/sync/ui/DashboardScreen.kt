@@ -75,6 +75,9 @@ fun DashboardScreen(
     var digestRunning by remember { mutableStateOf(false) }
     var tdeeData by remember { mutableStateOf<TdeeResponse?>(null) }
     var tdeeError by remember { mutableStateOf<String?>(null) }
+    // Starts true so the TDEE card doesn't flash "Set server URL in Settings" during
+    // the one frame before the DataStore read below resolves the real answer.
+    var serverConfigured by remember { mutableStateOf(true) }
     val zone = remember { ZoneId.systemDefault() }
     val scope = rememberCoroutineScope()
     val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
@@ -158,9 +161,13 @@ fun DashboardScreen(
             // propagate uncaught out of this LaunchedEffect and crash the screen.
             val baseUrl = appPreferences.getBaseUrl()
             if (baseUrl.isNullOrBlank()) {
-                // No server configured yet: a quiet fallback state, not an error.
+                // No server configured yet: a quiet fallback state, not an error — but
+                // the TDEE card needs to tell these apart from a genuine empty result,
+                // so it can point the user at Settings instead of saying "no data".
+                serverConfigured = false
                 null
             } else {
+                serverConfigured = true
                 HealthApiClient(baseUrl).getTdee(7)
             }
         } catch (e: CancellationException) {
@@ -240,6 +247,7 @@ fun DashboardScreen(
                                 onClick = { onMetricClick(metric) },
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
+                                serverConfigured = serverConfigured,
                             )
                         }
                     }
@@ -256,6 +264,7 @@ fun DashboardScreen(
                                 onClick = { onMetricClick(metric) },
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
+                                serverConfigured = serverConfigured,
                             )
                         }
                     }

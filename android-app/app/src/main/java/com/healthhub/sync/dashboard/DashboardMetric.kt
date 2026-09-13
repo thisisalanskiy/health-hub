@@ -21,12 +21,18 @@ enum class DashboardMetric(val id: String, val title: String, val unit: String) 
  * is simplified from "Calculated: X · MacroFactor: Y" to a single number
  * (the detail screen still shows the full calculated-vs-MacroFactor
  * breakdown) so every compact card shows exactly one headline value.
+ *
+ * @param serverConfigured whether a server base URL is set. TDEE comes from the
+ * server, not Health Connect, so with no URL configured there is nothing to fetch
+ * and no error either — that case gets its own actionable message instead of a
+ * bare "no data" the user can't act on.
  */
 fun previewValueText(
     metric: DashboardMetric,
     data: MetricSeriesData?,
     tdeeData: TdeeResponse?,
     tdeeError: String?,
+    serverConfigured: Boolean = true,
 ): String = when (metric) {
     DashboardMetric.WEIGHT -> (data as? MetricSeriesData.Line)?.series?.values?.lastOrNull()
         ?.let { "%.1f kg".format(it) } ?: "no data"
@@ -66,6 +72,7 @@ fun previewValueText(
         when {
             latest != null -> "${latest.toInt()} kcal"
             tdeeError != null -> tdeeError.substringBefore(":")
+            !serverConfigured -> "Set server URL in Settings"
             else -> "no data"
         }
     }

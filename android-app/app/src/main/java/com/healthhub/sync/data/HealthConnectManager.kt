@@ -166,8 +166,25 @@ class HealthConnectManager(private val context: Context) {
      * Reads a single Health Connect record type over [start, end] — used by the chart
      * detail screen (Task 9), which needs an independent range per metric rather than
      * the dashboard's shared 7-day fetch of all 7 types in [readAllRecords].
+     *
+     * Paginates: `ReadRecordsRequest` caps a single response at `pageSize` (default
+     * 1000) records and hands back a non-null `pageToken` when more remain, so a
+     * single call over a long range (3M/6M/1Y/All) on a high-volume type like Steps
+     * or HeartRate would silently return only the first ~1000 records. This loops
+     * until `pageToken` comes back null, accumulating every page.
      */
-    suspend fun <T : Record> readRecordsInRange(type: KClass<T>, start: Instant, end: Instant): List<T> =
-        client.readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end))).records
+    suspend fun <T : Record> readRecordsInRange(type: KClass<T>, start: Instant, end: Instant): List<T> {
+        val range = TimeRangeFilter.between(start, end)
+        val all = mutableListOf<T>()
+        var pageToken: String? = null
+        do {
+            val response = client.readRecords(
+                ReadRecordsRequest(recordType = type, timeRangeFilter = range, pageToken = pageToken),
+            )
+            all += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return all
+    }
 
 }

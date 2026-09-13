@@ -81,4 +81,31 @@ class DashboardMetricTest {
     fun `tdee preview value falls back to an error message`() {
         assertEquals("TDEE unavailable", previewValueText(DashboardMetric.TDEE, null, null, "TDEE unavailable: 500"))
     }
+
+    @Test
+    fun `tdee preview value points at Settings when no server is configured`() {
+        assertEquals(
+            "Set server URL in Settings",
+            previewValueText(DashboardMetric.TDEE, null, null, null, serverConfigured = false),
+        )
+    }
+
+    @Test
+    fun `tdee preview value reports no data when the server is configured but empty`() {
+        val tdee = TdeeResponse(
+            dates = emptyList(),
+            calories = emptyList(),
+            calculatedTdee = emptyList(),
+            macrofactorTdee = emptyList(),
+        )
+        assertEquals("no data", previewValueText(DashboardMetric.TDEE, null, tdee, null, serverConfigured = true))
+    }
+
+    @Test
+    fun `tdee preview value prefers a real error over the no-server message`() {
+        assertEquals(
+            "TDEE unavailable",
+            previewValueText(DashboardMetric.TDEE, null, null, "TDEE unavailable: 500", serverConfigured = false),
+        )
+    }
 }

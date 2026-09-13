@@ -32,9 +32,10 @@ fun DashboardMetricCard(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
+    serverConfigured: Boolean = true,
 ) {
     val data = previewSeriesData(metric, rawData, zone)
-    val currentValue = previewValueText(metric, data, tdeeData, tdeeError)
+    val currentValue = previewValueText(metric, data, tdeeData, tdeeError, serverConfigured)
 
     with(sharedTransitionScope) {
         Card(
@@ -53,7 +54,10 @@ fun DashboardMetricCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(metric.title, style = MaterialTheme.typography.titleMedium)
-                Text("Last 7 days", style = MaterialTheme.typography.bodySmall)
+                // The unit rides on the subtitle line: the compact card shows only the
+                // title and a bare headline number, so without this e.g. Steps reads as
+                // an unlabelled "8342" (the old dashboard put it in the title instead).
+                Text("Last 7 days · ${metric.unit}", style = MaterialTheme.typography.bodySmall)
                 data?.let { RenderMetricChart(data = it, compact = true) }
                 Text(currentValue, style = MaterialTheme.typography.headlineSmall)
             }

@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,13 @@ private enum class Destination(val route: String, val label: String, val icon: S
     DASHBOARD("dashboard", "Dashboard", "📊"),
     SETTINGS("settings", "Settings", "⚙️"),
 }
+
+/**
+ * The chart detail route template, exactly as registered with [composable] — which is
+ * also what `NavDestination.route` reports for it (the pattern, not the instance path
+ * with a real metric id substituted), so transition lambdas can compare against it.
+ */
+private const val CHART_DETAIL_ROUTE = "chart_detail/{metricId}"
 
 /** Material's standard compact/expanded width breakpoint. */
 private val WIDE_SCREEN_BREAKPOINT = 600.dp
@@ -166,14 +174,25 @@ private fun NavHostContent(
                 modifier = Modifier.widthIn(max = CONTENT_MAX_WIDTH).fillMaxSize(),
             ) {
                 // Dashboard and chart_detail suppress NavHost's default per-destination
-                // horizontal slide: it would play at the same time as (and visually fight)
-                // the sharedBounds morph between the tapped card and the detail chart.
+                // horizontal slide *only for each other*: it would play at the same time
+                // as (and visually fight) the sharedBounds morph between the tapped card
+                // and the detail chart. Against any other destination (Settings, via the
+                // bottom nav) they keep a real crossfade — suppressing it unconditionally
+                // made Dashboard hard-cut while only Settings faded.
                 composable(
                     route = Destination.DASHBOARD.route,
-                    enterTransition = { EnterTransition.None },
-                    exitTransition = { ExitTransition.None },
-                    popEnterTransition = { EnterTransition.None },
-                    popExitTransition = { ExitTransition.None },
+                    enterTransition = {
+                        if (initialState.destination.route == CHART_DETAIL_ROUTE) EnterTransition.None else fadeIn()
+                    },
+                    exitTransition = {
+                        if (targetState.destination.route == CHART_DETAIL_ROUTE) ExitTransition.None else fadeOut()
+                    },
+                    popEnterTransition = {
+                        if (initialState.destination.route == CHART_DETAIL_ROUTE) EnterTransition.None else fadeIn()
+                    },
+                    popExitTransition = {
+                        if (targetState.destination.route == CHART_DETAIL_ROUTE) ExitTransition.None else fadeOut()
+                    },
                 ) {
                     DashboardScreen(
                         healthConnectManager = healthConnectManager,
@@ -185,12 +204,24 @@ private fun NavHostContent(
                     )
                 }
                 composable(
-                    route = "chart_detail/{metricId}",
+                    route = CHART_DETAIL_ROUTE,
                     arguments = listOf(navArgument("metricId") { type = NavType.StringType }),
-                    enterTransition = { EnterTransition.None },
-                    exitTransition = { ExitTransition.None },
-                    popEnterTransition = { EnterTransition.None },
-                    popExitTransition = { ExitTransition.None },
+                    // Mirror of Dashboard's rule: no transition against Dashboard (the
+                    // shared-element morph owns that one), a crossfade against anything
+                    // else — reachable because the bottom nav stays visible here, so the
+                    // user can jump straight from a chart to Settings.
+                    enterTransition = {
+                        if (initialState.destination.route == Destination.DASHBOARD.route) EnterTransition.None else fadeIn()
+                    },
+                    exitTransition = {
+                        if (targetState.destination.route == Destination.DASHBOARD.route) ExitTransition.None else fadeOut()
+                    },
+                    popEnterTransition = {
+                        if (initialState.destination.route == Destination.DASHBOARD.route) EnterTransition.None else fadeIn()
+                    },
+                    popExitTransition = {
+                        if (targetState.destination.route == Destination.DASHBOARD.route) ExitTransition.None else fadeOut()
+                    },
                 ) { backStackEntry ->
                     val metricId = backStackEntry.arguments?.getString("metricId")
                     val metric = DashboardMetric.values().firstOrNull { it.id == metricId }
@@ -203,6 +234,11 @@ private fun NavHostContent(
                             sharedTransitionScope = this@SharedTransitionLayout,
                             animatedVisibilityScope = this,
                         )
+                    } else {
+                        // Unknown metric id (e.g. a restored back stack whose enum id no
+                        // longer exists). Rendering nothing would strand the user on a
+                        // blank screen with no back affordance, so bounce to the dashboard.
+                        LaunchedEffect(Unit) { navController.popBackStack() }
                     }
                 }
                 // Settings has no shared element, so it keeps a real transition — a
