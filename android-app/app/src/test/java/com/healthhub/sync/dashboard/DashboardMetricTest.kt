@@ -27,9 +27,9 @@ class DashboardMetricTest {
     }
 
     @Test
-    fun `steps preview value formats the last value as a whole number`() {
+    fun `steps preview value formats the last value as a comma-grouped whole number`() {
         val data = MetricSeriesData.Bar(ChartSeries(listOf("2026-09-01"), listOf(8342f)))
-        assertEquals("8342", previewValueText(DashboardMetric.STEPS, data, null, null))
+        assertEquals("8,342", previewValueText(DashboardMetric.STEPS, data, null, null))
     }
 
     @Test
@@ -74,7 +74,7 @@ class DashboardMetricTest {
             calculatedTdee = listOf(2450.0),
             macrofactorTdee = listOf(2400.0),
         )
-        assertEquals("2450 kcal", previewValueText(DashboardMetric.TDEE, null, tdee, null))
+        assertEquals("2,450 kcal", previewValueText(DashboardMetric.TDEE, null, tdee, null))
     }
 
     @Test

@@ -37,7 +37,7 @@ fun previewValueText(
     DashboardMetric.WEIGHT -> (data as? MetricSeriesData.Line)?.series?.values?.lastOrNull()
         ?.let { "%.1f kg".format(it) } ?: "no data"
     DashboardMetric.STEPS -> (data as? MetricSeriesData.Bar)?.series?.values?.lastOrNull()
-        ?.let { "${it.toInt()}" } ?: "no data"
+        ?.let { "%,d".format(it.toInt()) } ?: "no data"
     DashboardMetric.HEART_RATE -> (data as? MetricSeriesData.Line)?.series?.values?.lastOrNull()
         ?.let { "${it.toInt()} bpm" } ?: "no data"
     DashboardMetric.RESTING_HEART_RATE -> (data as? MetricSeriesData.Line)?.series?.values?.lastOrNull()
@@ -54,7 +54,7 @@ fun previewValueText(
         totalMinutes?.let { "${(it / 60).toInt()}h ${(it % 60).toInt()}m last night" } ?: "no data"
     }
     DashboardMetric.WORKOUTS -> (data as? MetricSeriesData.Bar)?.series?.values?.lastOrNull()
-        ?.let { "${it.toInt()} min this week" } ?: "no data"
+        ?.let { "%,d min this week".format(it.toInt()) } ?: "no data"
     DashboardMetric.NUTRITION -> {
         val stacked = data as? MetricSeriesData.Stacked
         val lastDay = stacked?.seriesByStack?.values?.firstOrNull()?.labels?.lastOrNull()
@@ -64,13 +64,13 @@ fun previewValueText(
                 if (idx >= 0) series.values[idx].toDouble() else 0.0
             }
         }
-        total?.let { "${it.toInt()}g today" } ?: "no data"
+        total?.let { "%,dg today".format(it.toInt()) } ?: "no data"
     }
     DashboardMetric.TDEE -> {
         val latest = tdeeData?.calculatedTdee?.lastOrNull { it != null }
             ?: tdeeData?.macrofactorTdee?.lastOrNull { it != null }
         when {
-            latest != null -> "${latest.toInt()} kcal"
+            latest != null -> "%,d kcal".format(latest.toInt())
             tdeeError != null -> tdeeError.substringBefore(":")
             !serverConfigured -> "Set server URL in Settings"
             else -> "no data"

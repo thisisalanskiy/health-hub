@@ -97,6 +97,15 @@ class MainActivity : ComponentActivity() {
                             currentRoute?.hierarchy?.any { it.route == destination.route } == true
 
                         fun navigateTo(destination: Destination) {
+                            // Tapping Dashboard while a chart detail screen is open: pop back to
+                            // it via the same popBackStack() the explicit back arrow uses, rather
+                            // than a fresh navigate() — that reuses the shared-element reverse
+                            // morph and reliably lands on Dashboard, instead of an unanimated cut
+                            // that could look like the tap did nothing.
+                            if (destination == Destination.DASHBOARD && currentRoute?.route == CHART_DETAIL_ROUTE) {
+                                navController.popBackStack(Destination.DASHBOARD.route, inclusive = false)
+                                return
+                            }
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true

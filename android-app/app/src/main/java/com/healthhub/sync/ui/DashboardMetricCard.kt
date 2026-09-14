@@ -5,12 +5,15 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.healthhub.sync.dashboard.DashboardMetric
@@ -51,15 +54,30 @@ fun DashboardMetricCard(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(metric.title, style = MaterialTheme.typography.titleMedium)
-                // The unit rides on the subtitle line: the compact card shows only the
-                // title and a bare headline number, so without this e.g. Steps reads as
-                // an unlabelled "8342" (the old dashboard put it in the title instead).
-                Text("Last 7 days · ${metric.unit}", style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(metric.title, style = MaterialTheme.typography.titleMedium)
+                    // The unit rides up here rather than the title: a bare headline
+                    // number like "8342" for Steps reads as unlabelled otherwise.
+                    Text("Last 7 days · ${metric.unit}", style = MaterialTheme.typography.bodySmall)
+                }
                 data?.let { RenderMetricChart(data = it, compact = true) }
-                Text(currentValue, style = MaterialTheme.typography.headlineSmall)
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(currentValue, style = MaterialTheme.typography.headlineSmall)
+                    // Disclosure chevron: the card's own ripple already signals it's
+                    // tappable, but this makes "opens something" explicit at a glance.
+                    Text("›", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
