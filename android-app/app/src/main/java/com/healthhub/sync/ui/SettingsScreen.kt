@@ -1,7 +1,7 @@
 package com.healthhub.sync.ui
 
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,7 +36,9 @@ import com.healthhub.sync.data.local.MacroFactorDailyEntity
 import com.healthhub.sync.data.parseMacroFactorExport
 import com.healthhub.sync.data.runFillGap
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.Date
@@ -61,9 +63,11 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
         importStatus = null
         scope.launch {
             importStatus = try {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("Couldn't open the selected file")
-                val rows = parseMacroFactorExport(bytes)
+                val rows = withContext(Dispatchers.IO) {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("Couldn't open the selected file")
+                    parseMacroFactorExport(bytes)
+                }
                 val entities = rows.map { row ->
                     MacroFactorDailyEntity(
                         date = row.date.format(DateTimeFormatter.ISO_LOCAL_DATE),
