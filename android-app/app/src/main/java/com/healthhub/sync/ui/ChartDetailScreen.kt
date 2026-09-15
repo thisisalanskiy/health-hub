@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -130,8 +131,17 @@ fun ChartDetailScreen(
                     }
                     Text(headline, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
                     HorizontalDivider(modifier = Modifier.padding(top = 12.dp))
-                    RenderMetricChart(data = currentData, compact = false, modifier = Modifier.padding(top = 12.dp))
-                    ChartLegend(currentData)
+                    // Card, not a bare chart: the dashboard's compact cards already have a
+                    // surface-colored container behind their charts, but this screen's own
+                    // Surface (above) uses the plain background color for the whole screen —
+                    // without this, the chart floated directly on that background with no
+                    // visual boundary, looking flatter/less finished than the dashboard cards.
+                    Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            RenderMetricChart(data = currentData, compact = false)
+                            ChartLegend(currentData)
+                        }
+                    }
                 }
             }
 
