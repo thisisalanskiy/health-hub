@@ -28,6 +28,16 @@ class TdeeCalculatorTest {
     }
 
     @Test
+    fun `fewer than minReadings intake points in the window returns null`() {
+        val start = LocalDate.of(2026, 8, 1)
+        val weights = (0 until 14).associate { start.plusDays(it.toLong()) to 80.0 } // 14, plenty
+        val intake = mapOf(start to 2000.0, start.plusDays(1) to 2010.0) // only 2, need 7
+        val target = start.plusDays(13)
+        val result = computeTdeeSeries(weights, intake, listOf(target))
+        assertNull(result[target])
+    }
+
+    @Test
     fun `linreg slope of a single-x-value window is zero, not a division error`() {
         val d = LocalDate.of(2026, 8, 1)
         assertEquals(0.0, linregSlope(listOf(d to 80.0, d to 81.0)), 0.0)
