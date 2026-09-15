@@ -1,5 +1,7 @@
 package com.healthhub.sync.ui
 
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,13 +26,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.healthhub.sync.BuildConfig
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
+import com.healthhub.sync.data.local.AppDatabase
+import com.healthhub.sync.data.local.MacroFactorDailyEntity
+import com.healthhub.sync.data.parseMacroFactorExport
 import com.healthhub.sync.data.runFillGap
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -41,8 +49,43 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
     var showServerDialog by remember { mutableStateOf(false) }
     var fillGapStatus by remember { mutableStateOf<String?>(null) }
     var fillGapRunning by remember { mutableStateOf(false) }
+    var importStatus by remember { mutableStateOf<String?>(null) }
+    var importRunning by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importRunning = true
+        importStatus = null
+        scope.launch {
+            importStatus = try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: error("Couldn't open the selected file")
+                val rows = parseMacroFactorExport(bytes)
+                val entities = rows.map { row ->
+                    MacroFactorDailyEntity(
+                        date = row.date.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                        expenditureKcal = row.expenditureKcal,
+                        trendWeightKg = row.trendWeightKg,
+                        weightKg = row.weightKg,
+                        caloriesKcal = row.caloriesKcal,
+                        proteinG = row.proteinG,
+                        fatG = row.fatG,
+                        carbsG = row.carbsG,
+                    )
+                }
+                AppDatabase.getInstance(context).macroFactorDailyDao().upsertAll(entities)
+                "Imported ${entities.size} days"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "Import failed: ${e.message ?: e::class.simpleName}"
+            }
+            importRunning = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         baseUrl = appPreferences.getBaseUrl() ?: ""
@@ -82,7 +125,23 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
             Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         }
 
-        // Section 2: Sync Log
+        // Section 2: MacroFactor import
+        Text("MacroFactor", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+        Row(Modifier.padding(top = 8.dp)) {
+            OutlinedButton(
+                enabled = !importRunning,
+                onClick = {
+                    importLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                },
+            ) {
+                Text(if (importRunning) "Importing…" else "Import MacroFactor export…")
+            }
+        }
+        importStatus?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        // Section 3: Sync Log
         Text("Sync Log", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
         LazyColumn(Modifier.weight(1f)) {
             items(log) { entry ->
