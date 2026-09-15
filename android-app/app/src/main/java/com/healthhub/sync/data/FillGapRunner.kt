@@ -18,7 +18,18 @@ private val backfillHttpClient: OkHttpClient by lazy {
         .build()
 }
 
-suspend fun runFillGap(baseUrl: String, apiKey: String, healthConnectManager: HealthConnectManager): String {
+suspend fun runFillGap(
+    baseUrl: String,
+    apiKey: String,
+    healthConnectManager: HealthConnectManager,
+    appPreferences: AppPreferences,
+): String {
+    // Backfill exists only to push history to the self-hosted backend, so with the
+    // opt-in off this returns before any network call at all — including the
+    // last-sync probe below, which is itself a request to that server.
+    if (!appPreferences.getBackendSyncEnabled()) {
+        return "Backend sync is off — turn on \"Sync to self-hosted server\" to backfill."
+    }
     if (baseUrl.isBlank()) return "Set a server URL first."
     val since = LastSyncApiClient(baseUrl, backfillHttpClient).getLastSync()
         ?: return "Couldn't reach the server, or no data in Postgres yet."

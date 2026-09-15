@@ -1,6 +1,7 @@
 package com.healthhub.sync.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -20,7 +21,16 @@ class AppPreferences(private val context: Context) {
     private val baseUrlKey = stringPreferencesKey("base_url")
     private val apiKeyKey = stringPreferencesKey("api_key")
     private val syncLogKey = stringPreferencesKey("sync_log_json")
+    private val backendSyncEnabledKey = booleanPreferencesKey("backend_sync_enabled")
     private fun changesTokenKey(recordTypeKey: String) = stringPreferencesKey("changes_token_$recordTypeKey")
+
+    /**
+     * The application context this instance was built with. Exposed so suspend helpers that
+     * already receive an [AppPreferences] (the dashboard's local TDEE path, which needs Room)
+     * can reach it without threading a second Context parameter through the Composables that
+     * call them.
+     */
+    internal val appContext: Context get() = context.applicationContext
 
     suspend fun getBaseUrl(): String? = context.dataStore.data.first()[baseUrlKey]
 
@@ -32,6 +42,19 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setApiKey(value: String) {
         context.dataStore.edit { it[apiKeyKey] = value }
+    }
+
+    /**
+     * Whether synced data may additionally be POSTed to the self-hosted backend. Opt-in:
+     * absent means false, so a fresh install never talks to a server. This gates only the
+     * outbound POSTs — every on-device read (Health Connect, the dashboard's local TDEE)
+     * runs regardless.
+     */
+    suspend fun getBackendSyncEnabled(): Boolean =
+        context.dataStore.data.first()[backendSyncEnabledKey] ?: false
+
+    suspend fun setBackendSyncEnabled(value: Boolean) {
+        context.dataStore.edit { it[backendSyncEnabledKey] = value }
     }
 
     suspend fun getChangesToken(recordTypeKey: String): String? =

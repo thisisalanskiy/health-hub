@@ -32,6 +32,17 @@ class SyncWorker(
                 return SyncOutcome.Failure("Health Connect permissions not granted")
             }
 
+            // Backend sync is opt-in. With it off this worker has nothing to do: its
+            // entire job is the POST below, so it returns before any network call —
+            // and before the changes fetch too, deliberately. Reading changes without
+            // a POST can't advance the tokens (they may only advance after a confirmed
+            // send), so every run would re-page the same ever-growing backlog and throw
+            // it away. Nothing local depends on this read: the dashboard reads Health
+            // Connect directly, and the MacroFactor import writes Room on its own.
+            if (!prefs.getBackendSyncEnabled()) {
+                return SyncOutcome.Success(recordsSent = false)
+            }
+
             val baseUrl = prefs.getBaseUrl()
             if (baseUrl.isNullOrBlank()) {
                 return SyncOutcome.Failure("no server URL configured")

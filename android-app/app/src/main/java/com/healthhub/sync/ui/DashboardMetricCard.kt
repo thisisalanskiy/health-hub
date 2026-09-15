@@ -35,10 +35,9 @@ fun DashboardMetricCard(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
-    serverConfigured: Boolean = true,
 ) {
     val data = previewSeriesData(metric, rawData, zone)
-    val currentValue = previewValueText(metric, data, tdeeData, tdeeError, serverConfigured)
+    val currentValue = previewValueText(metric, data, tdeeData, tdeeError)
 
     with(sharedTransitionScope) {
         Card(

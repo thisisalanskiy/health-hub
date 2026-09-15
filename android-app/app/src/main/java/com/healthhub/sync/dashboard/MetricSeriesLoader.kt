@@ -10,8 +10,11 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
-import com.healthhub.sync.digest.HealthApiClient
+import com.healthhub.sync.data.local.AppDatabase
+import com.healthhub.sync.data.local.MacroFactorDailyDao
+import com.healthhub.sync.digest.TdeeResponse
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
@@ -34,12 +37,92 @@ private val TDEE_COLORS = mapOf(
     "macrofactor" to Color(0xFFE65100),
 )
 
+// Same values api/main.py's /api/tdee endpoint uses, so the on-device series matches
+// what the server would have returned for the same underlying data.
+private const val TDEE_WINDOW_DAYS = 14
+private const val TDEE_MIN_READINGS = 7
+
 private fun buildTdeeSeries(dates: List<String>, values: List<Double?>): ChartSeries {
     val pairs = dates.zip(values).filter { it.second != null }
     return ChartSeries(pairs.map { it.first }, pairs.map { it.second!!.toFloat() })
 }
 
-/** Pure: builds a metric's series from an already-fetched [DashboardRawData] window — used by the dashboard's compact preview cards. TDEE is network-only and has no offline representation, so it returns null here (its card headline comes directly from the caller's tdeeData/tdeeError instead). */
+/**
+ * TDEE computed entirely on-device: [computeTdeeSeries] (the Kotlin port of `api/tdee.py`)
+ * fed by Health Connect weight + nutrition reads, with MacroFactor's own expenditure column
+ * — imported into Room from the app's .xlsx import — as the comparison line.
+ *
+ * Replaces `/api/tdee`, and is used unconditionally: backend sync being on or off only
+ * decides whether data is additionally POSTed to a server, never where the UI reads TDEE
+ * from, so the chart keeps working when the backend is unreachable.
+ *
+ * Returns the same [TdeeResponse] shape the server endpoint returned, so every existing
+ * consumer (dashboard card, chart detail screen, Claude digest) keeps working unchanged.
+ * `dates` are ISO-8601 local dates, ascending and gap-free, ending today; the three value
+ * lists are index-aligned with it, `null` where that day has no value.
+ *
+ * @param days how many days of output, ending today (inclusive) — the read reaches
+ * [TDEE_WINDOW_DAYS] further back so the earliest target date still has a full trailing
+ * window of history to regress over, exactly as the server's extra lookback did.
+ */
+suspend fun loadLocalTdee(
+    days: Int,
+    healthConnectManager: HealthConnectManager,
+    macroFactorDailyDao: MacroFactorDailyDao,
+    zone: ZoneId = ZoneId.systemDefault(),
+): TdeeResponse {
+    val today = LocalDate.now(zone)
+    // coerceAtLeast keeps the list non-empty for days <= 0, so the .first()/.last() below
+    // can't throw on a caller that computed its window arithmetically.
+    val targetDates = ((days - 1).coerceAtLeast(0) downTo 0).map { today.minusDays(it.toLong()) }
+    val readStart = targetDates.first().minusDays(TDEE_WINDOW_DAYS.toLong()).atStartOfDay(zone).toInstant()
+    val readEnd = Instant.now()
+
+    val weights = healthConnectManager.readRecordsInRange(WeightRecord::class, readStart, readEnd)
+    val nutrition = healthConnectManager.readRecordsInRange(NutritionRecord::class, readStart, readEnd)
+
+    val dailyWeights: Map<LocalDate, Double> = weights
+        .groupBy { it.time.atZone(zone).toLocalDate() }
+        .mapValues { (_, records) -> records.map { it.weight.inKilograms }.average() }
+
+    val dailyIntake: Map<LocalDate, Double> = nutrition
+        .groupBy { it.startTime.atZone(zone).toLocalDate() }
+        .mapValues { (_, records) -> records.sumOf { it.energy?.inKilocalories ?: 0.0 } }
+        // A day whose records all lack an energy value is a day with no intake data, not a
+        // 0 kcal day — keeping it would drag the window's average intake down. Mirrors the
+        // server's `AND energy_kcal IS NOT NULL`.
+        .filterValues { it > 0.0 }
+
+    val calculated = computeTdeeSeries(
+        dailyWeights = dailyWeights,
+        dailyIntake = dailyIntake,
+        targetDates = targetDates,
+        windowDays = TDEE_WINDOW_DAYS,
+        minReadings = TDEE_MIN_READINGS,
+    )
+
+    val macroFactorByDate = macroFactorDailyDao
+        .getInRange(targetDates.first().toString(), targetDates.last().toString())
+        .associate { it.date to it.expenditureKcal }
+
+    return TdeeResponse(
+        dates = targetDates.map { it.toString() },
+        calories = targetDates.map { dailyIntake[it] },
+        calculatedTdee = targetDates.map { calculated[it] },
+        macrofactorTdee = targetDates.map { macroFactorByDate[it.toString()] },
+    )
+}
+
+/** The TDEE chart's two-line shape, shared by the dashboard preview and the detail screen. */
+fun tdeeMultiLine(tdee: TdeeResponse): MetricSeriesData.MultiLine = MetricSeriesData.MultiLine(
+    mapOf(
+        "calculated" to buildTdeeSeries(tdee.dates, tdee.calculatedTdee),
+        "macrofactor" to buildTdeeSeries(tdee.dates, tdee.macrofactorTdee),
+    ),
+    TDEE_COLORS,
+)
+
+/** Pure: builds a metric's series from an already-fetched [DashboardRawData] window — used by the dashboard's compact preview cards. TDEE needs a longer trailing window than this 7-day snapshot plus its own Room lookup, so it returns null here and is loaded separately via [loadLocalTdee] (its card headline comes from the caller's tdeeData/tdeeError instead). */
 fun previewSeriesData(metric: DashboardMetric, data: DashboardRawData, zone: ZoneId): MetricSeriesData? = when (metric) {
     DashboardMetric.WEIGHT -> MetricSeriesData.Line(DashboardAggregator.dailyWeightTrend(data, zone))
     DashboardMetric.STEPS -> MetricSeriesData.Bar(DashboardAggregator.dailySteps(data, zone))
@@ -113,16 +196,13 @@ suspend fun loadDetailSeriesData(
             )
             MetricSeriesData.Stacked(mapOf("protein" to protein, "fat" to fat, "carbs" to carbs), NUTRITION_COLORS)
         }
-        DashboardMetric.TDEE -> {
-            val baseUrl = appPreferences.getBaseUrl()
-            val tdee = if (baseUrl.isNullOrBlank()) null else HealthApiClient(baseUrl).getTdee(days)
-            MetricSeriesData.MultiLine(
-                mapOf(
-                    "calculated" to buildTdeeSeries(tdee?.dates.orEmpty(), tdee?.calculatedTdee.orEmpty()),
-                    "macrofactor" to buildTdeeSeries(tdee?.dates.orEmpty(), tdee?.macrofactorTdee.orEmpty()),
-                ),
-                TDEE_COLORS,
-            )
-        }
+        DashboardMetric.TDEE -> tdeeMultiLine(
+            loadLocalTdee(
+                days = days,
+                healthConnectManager = healthConnectManager,
+                macroFactorDailyDao = AppDatabase.getInstance(appPreferences.appContext).macroFactorDailyDao(),
+                zone = zone,
+            ),
+        )
     }
 }

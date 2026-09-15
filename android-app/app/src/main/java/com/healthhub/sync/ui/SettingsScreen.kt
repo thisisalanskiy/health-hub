@@ -2,10 +2,12 @@ package com.healthhub.sync.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -48,6 +52,9 @@ import java.util.Locale
 fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthConnectManager) {
     var baseUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
+    // Opt-in: starts false so the one frame before the DataStore read below resolves
+    // never shows the toggle on.
+    var backendSyncEnabled by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
     var fillGapStatus by remember { mutableStateOf<String?>(null) }
     var fillGapRunning by remember { mutableStateOf(false) }
@@ -94,6 +101,7 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
     LaunchedEffect(Unit) {
         baseUrl = appPreferences.getBaseUrl() ?: ""
         apiKey = appPreferences.getApiKey() ?: ""
+        backendSyncEnabled = appPreferences.getBackendSyncEnabled()
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -101,6 +109,30 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
 
         // Section 1: Server settings
         Text("Server settings", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Sync to self-hosted server")
+                Text(
+                    "Off by default — nothing leaves this phone. The dashboard reads Health Connect " +
+                        "directly either way.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = backendSyncEnabled,
+                onCheckedChange = { enabled ->
+                    // Optimistic: the switch reflects the tap immediately, and the
+                    // DataStore write is the only source anything else reads from.
+                    backendSyncEnabled = enabled
+                    scope.launch { appPreferences.setBackendSyncEnabled(enabled) }
+                },
+            )
+        }
         SyncStatusLine(log)
         log.firstOrNull()?.let { latest ->
             Text(
@@ -115,7 +147,7 @@ fun SettingsScreen(appPreferences: AppPreferences, healthConnectManager: HealthC
                     fillGapRunning = true
                     fillGapStatus = null
                     scope.launch {
-                        fillGapStatus = runFillGap(baseUrl, apiKey, healthConnectManager)
+                        fillGapStatus = runFillGap(baseUrl, apiKey, healthConnectManager, appPreferences)
                         fillGapRunning = false
                     }
                 },

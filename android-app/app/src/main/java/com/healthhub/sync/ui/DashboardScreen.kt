@@ -41,9 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import com.healthhub.sync.dashboard.DashboardMetric
 import com.healthhub.sync.dashboard.DashboardRawData
+import com.healthhub.sync.dashboard.loadLocalTdee
 import com.healthhub.sync.data.AppPreferences
 import com.healthhub.sync.data.HealthConnectManager
-import com.healthhub.sync.digest.HealthApiClient
+import com.healthhub.sync.data.local.AppDatabase
 import com.healthhub.sync.digest.TdeeResponse
 import com.healthhub.sync.digest.prepareForClaude
 import com.healthhub.sync.sync.SyncScheduler
@@ -75,9 +76,6 @@ fun DashboardScreen(
     var digestRunning by remember { mutableStateOf(false) }
     var tdeeData by remember { mutableStateOf<TdeeResponse?>(null) }
     var tdeeError by remember { mutableStateOf<String?>(null) }
-    // Starts true so the TDEE card doesn't flash "Set server URL in Settings" during
-    // the one frame before the DataStore read below resolves the real answer.
-    var serverConfigured by remember { mutableStateOf(true) }
     val zone = remember { ZoneId.systemDefault() }
     val scope = rememberCoroutineScope()
     val log by appPreferences.syncLogFlow().collectAsState(initial = emptyList())
@@ -149,27 +147,24 @@ fun DashboardScreen(
         }
     }
 
-    // Separate from the Health-Connect-gated effect above: TDEE comes from the
-    // server over Tailscale, not Health Connect, so it depends only on the
-    // configured server URL — not on permissions.
-    LaunchedEffect(Unit) {
+    // TDEE is computed on-device now (Health Connect weight + nutrition, plus any
+    // imported MacroFactor expenditure for the comparison line), so it needs no
+    // server — but unlike before it does need Health Connect permissions, hence
+    // the same key as the read above. Kept as its own effect because it reaches
+    // further back than that 7-day window and also touches Room.
+    LaunchedEffect(hasForegroundPermissions) {
+        if (!hasForegroundPermissions) return@LaunchedEffect
         tdeeError = null
         tdeeData = try {
-            // getBaseUrl() reads Preferences DataStore and can throw IOException
-            // on a real read failure, so it must be inside this try along with
-            // the network call below - otherwise a DataStore failure would
-            // propagate uncaught out of this LaunchedEffect and crash the screen.
-            val baseUrl = appPreferences.getBaseUrl()
-            if (baseUrl.isNullOrBlank()) {
-                // No server configured yet: a quiet fallback state, not an error — but
-                // the TDEE card needs to tell these apart from a genuine empty result,
-                // so it can point the user at Settings instead of saying "no data".
-                serverConfigured = false
-                null
-            } else {
-                serverConfigured = true
-                HealthApiClient(baseUrl).getTdee(7)
-            }
+            // Both the Health Connect reads and the Room query below can throw
+            // (revoked permission, Health Connect gone, a disk failure) — an uncaught
+            // throw out of this LaunchedEffect would crash the screen.
+            loadLocalTdee(
+                days = 7,
+                healthConnectManager = healthConnectManager,
+                macroFactorDailyDao = AppDatabase.getInstance(context).macroFactorDailyDao(),
+                zone = zone,
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -247,7 +242,6 @@ fun DashboardScreen(
                                 onClick = { onMetricClick(metric) },
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
-                                serverConfigured = serverConfigured,
                             )
                         }
                     }
@@ -264,7 +258,6 @@ fun DashboardScreen(
                                 onClick = { onMetricClick(metric) },
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
-                                serverConfigured = serverConfigured,
                             )
                         }
                     }
