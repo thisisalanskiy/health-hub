@@ -24,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +50,7 @@ import com.healthhub.sync.digest.TdeeResponse
 import com.healthhub.sync.digest.prepareForClaude
 import com.healthhub.sync.sync.SyncScheduler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -270,7 +272,24 @@ fun DashboardScreen(
             horizontalAlignment = Alignment.End,
         ) {
             digestStatus?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
+                // Auto-dismiss after a few seconds, toast-style, rather than sitting there
+                // until overwritten by the next run — keyed on the message itself so a new
+                // status resets the clock instead of inheriting a countdown already in flight.
+                LaunchedEffect(it) {
+                    delay(4000)
+                    digestStatus = null
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                ) {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
             }
             FloatingActionButton(
                 onClick = {
