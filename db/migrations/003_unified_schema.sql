@@ -11,8 +11,8 @@
 --                       com.sbs.diet            → diet_app
 --   AH source_name:     WHOOP                   → whoop
 --                       COROS                   → coros
---                       Alan's Apple Watch      → apple_watch
---                       Alan's iPhone / iPhone / user's iPhone → iphone
+--                       My Apple Watch      → apple_watch
+--                       My iPhone / iPhone / user's iPhone → iphone
 --                       MacroFactor             → macrofactor
 --                       Health                  → health_app
 --                       Oura                    → oura
@@ -57,8 +57,8 @@ SELECT id, start_time, value::NUMERIC(6,2),
         WHEN 'WHOOP'               THEN 'whoop'
         WHEN 'COROS'               THEN 'coros'
         WHEN 'Health'              THEN 'health_app'
-        WHEN 'Alan''s Apple Watch' THEN 'apple_watch'
-        WHEN 'Alan''s iPhone'      THEN 'iphone'
+        WHEN 'My Apple Watch' THEN 'apple_watch'
+        WHEN 'My iPhone'      THEN 'iphone'
         WHEN 'iPhone'              THEN 'iphone'
         WHEN 'user''s iPhone'      THEN 'iphone'
         WHEN 'Oura'                THEN 'oura'
@@ -111,8 +111,8 @@ SELECT
         WHEN 'Oura'                THEN 'oura'
         WHEN 'Strava'              THEN 'strava'
         WHEN 'Ultrahuman'          THEN 'ultrahuman'
-        WHEN 'Alan''s Apple Watch' THEN 'apple_watch'
-        WHEN 'Alan''s iPhone'      THEN 'iphone'
+        WHEN 'My Apple Watch' THEN 'apple_watch'
+        WHEN 'My iPhone'      THEN 'iphone'
         WHEN 'Health'              THEN 'health_app'
         ELSE lower(replace(source_name, ' ', '_'))
     END,
@@ -262,9 +262,9 @@ UPDATE apple_health_quantity SET source = CASE source_name
     WHEN 'MacroFactor'         THEN 'macrofactor'
     WHEN 'MyFitnessPal'        THEN 'myfitnesspal'
     WHEN 'Health'              THEN 'health_app'
-    WHEN 'Alan''s Apple Watch' THEN 'apple_watch'
-    WHEN 'Alan''s iPhone'      THEN 'iphone'
-    WHEN 'Alan''s iPad'        THEN 'ipad'
+    WHEN 'My Apple Watch' THEN 'apple_watch'
+    WHEN 'My iPhone'      THEN 'iphone'
+    WHEN 'My iPad'        THEN 'ipad'
     WHEN 'iPhone'              THEN 'iphone'
     WHEN 'user''s iPhone'      THEN 'iphone'
     WHEN 'Blood Oxygen'        THEN 'blood_oxygen'
@@ -296,8 +296,8 @@ UPDATE apple_health_sleep SET source = CASE source_name
     WHEN 'Oura'                THEN 'oura'
     WHEN 'Ultrahuman'          THEN 'ultrahuman'
     WHEN 'AutoSleep'           THEN 'autosleep'
-    WHEN 'Alan''s Apple Watch' THEN 'apple_watch'
-    WHEN 'Alan''s iPhone'      THEN 'iphone'
+    WHEN 'My Apple Watch' THEN 'apple_watch'
+    WHEN 'My iPhone'      THEN 'iphone'
     WHEN 'Health'              THEN 'health_app'
     ELSE lower(replace(source_name, ' ', '_'))
 END

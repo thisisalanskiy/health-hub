@@ -7,12 +7,11 @@
 CREATE OR REPLACE FUNCTION _readable_source(s TEXT) RETURNS TEXT AS $$
 BEGIN
     RETURN CASE s
-        WHEN 'alan''s_apple watch' THEN 'Apple Watch'
+        WHEN 'user''s_apple watch' THEN 'Apple Watch'
         WHEN 'apple_watch'         THEN 'Apple Watch'
-        WHEN 'alan''s_ipad'        THEN 'iPad'
-        WHEN 'alan''s_iphone'      THEN 'iPhone'
-        WHEN 'iphone'              THEN 'iPhone'
+        WHEN 'user''s_ipad'        THEN 'iPad'
         WHEN 'user''s_iphone'      THEN 'iPhone'
+        WHEN 'iphone'              THEN 'iPhone'
         WHEN 'autosleep'           THEN 'AutoSleep'
         WHEN 'blood_oxygen'        THEN 'Blood Oxygen'
         WHEN 'bluetooth_device'    THEN 'Bluetooth'
@@ -52,12 +51,11 @@ DROP FUNCTION _readable_source;
 
 -- Fix curly-apostrophe (U+2019) + non-breaking-space (U+00A0) variants
 -- that the CASE above couldn't match with straight-quote literals
-UPDATE biometric_timeseries SET source = 'Apple Watch' WHERE source LIKE 'alan%apple%watch';
-UPDATE biometric_timeseries SET source = 'iPad'        WHERE source LIKE 'alan%ipad';
-UPDATE biometric_timeseries SET source = 'iPhone'      WHERE source LIKE 'alan%iphone';
+UPDATE biometric_timeseries SET source = 'Apple Watch' WHERE source LIKE 'user%apple%watch';
+UPDATE biometric_timeseries SET source = 'iPad'        WHERE source LIKE 'user%ipad';
 UPDATE biometric_timeseries SET source = 'iPhone'      WHERE source LIKE 'user%iphone';
-UPDATE sleep_records SET source = 'Apple Watch' WHERE source LIKE 'alan%apple%watch';
-UPDATE sleep_records SET source = 'iPhone'      WHERE source LIKE 'alan%iphone';
-UPDATE weight_logs   SET source = 'Apple Watch' WHERE source LIKE 'alan%apple%watch';
-UPDATE weight_logs   SET source = 'iPhone'      WHERE source LIKE 'alan%iphone';
-UPDATE workouts      SET source = 'Apple Watch' WHERE source LIKE 'alan%apple%watch';
+UPDATE sleep_records SET source = 'Apple Watch' WHERE source LIKE 'user%apple%watch';
+UPDATE sleep_records SET source = 'iPhone'      WHERE source LIKE 'user%iphone';
+UPDATE weight_logs   SET source = 'Apple Watch' WHERE source LIKE 'user%apple%watch';
+UPDATE weight_logs   SET source = 'iPhone'      WHERE source LIKE 'user%iphone';
+UPDATE workouts      SET source = 'Apple Watch' WHERE source LIKE 'user%apple%watch';
