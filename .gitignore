@@ -7,3 +7,4 @@ __pycache__/
 db/pgdata/
 .superpowers/
 .env
+hrv_history_backup.json

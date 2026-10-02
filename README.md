@@ -99,4 +99,4 @@ docs/          design specs and implementation plans from past work
 
 ## License
 
-TBD — license not yet chosen.
+[MIT](LICENSE)
