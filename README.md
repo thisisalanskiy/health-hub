@@ -94,7 +94,6 @@ api/           optional FastAPI backend (see api/README.md)
 db/            Postgres schema + migrations for the optional backend
 docker-compose.yml   runs the optional backend's API container
 scripts/       one-off import/backup helpers for the optional backend
-docs/          design specs and implementation plans from past work
 ```
 
 ## License
